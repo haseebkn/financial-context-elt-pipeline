@@ -1,0 +1,13 @@
+financial_context_engine:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      # Local DuckDB database file written to the project root directory
+      path: '../financial_engine.db'
+      threads: 4
+      
+      # Optional settings for DuckDB configurations
+      # Allows us to easily load extensions like json, parquet, etc.
+      extensions:
+        - json

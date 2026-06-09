@@ -1,0 +1,31 @@
+# Core HTTP and Retries
+requests>=2.31.0
+tenacity>=8.2.3
+
+# Google APIs
+google-api-python-client>=2.118.0
+google-auth-oauthlib>=1.2.0
+google-auth-httplib2>=0.2.0
+
+# Financial APIs
+alpaca-py>=0.23.0
+plaid-python>=18.0.0
+
+# Configuration & Utilities
+python-dotenv>=1.0.1
+pyyaml>=6.0.1
+structlog>=24.1.0
+pydantic>=2.6.1
+
+# Data Transformation
+dbt-duckdb>=1.7.0
+
+# AWS S3 Storage Integration
+boto3>=1.34.0
+
+# Phase 4: Local Vectorization & Embeddings
+chromadb==0.5.0
+sentence-transformers==3.0.1
+torch==2.3.1 --index-url https://download.pytorch.org/whl/cu121
+torchvision==0.18.1 --index-url https://download.pytorch.org/whl/cu121
+

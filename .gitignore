@@ -1,0 +1,39 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Config, Credentials & Secrets (Extremely Important!)
+.env
+*.env
+credentials.json
+token.json
+*accessKeys*
+*_accessKeys.csv
+*credentials*
+
+# Local Data Landing Zone & Warehouses
+raw_data/
+*.db
+*.db.wal
+vector_store/
+
+# Logs & Target files
+logs/
+*.log
+target/
+dbt_packages/
+
+# IDE & system files
+.vscode/
+.idea/
+.gemini/
+.DS_Store
+Thumbs.db
+

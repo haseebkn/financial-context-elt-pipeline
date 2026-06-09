@@ -1,0 +1,45 @@
+name: 'financial_context_engine'
+version: '1.0.0'
+config-version: 2
+
+# Profile name matching profiles.yml database connection config
+profile: 'financial_context_engine'
+
+# Folder layouts
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Materialization configurations
+models:
+  financial_context_engine:
+    # Staging models parse JSON, materialized as views to avoid unnecessary writing
+    staging:
+      +materialized: view
+      +schema: staging
+
+    # Intermediate models deduplicate and restructure data
+    intermediate:
+      +materialized: view
+      +schema: intermediate
+
+    # Marts materialize as tables / incremental datasets to optimize query performance
+    marts:
+      +materialized: incremental
+      +schema: analytics
+      # Use insert_overwrite or append (or merge if using primary keys). 
+      # For fct_context_rows, we'll configure unique_key='row_id' in the model.
+
+vars:
+  # Container mount path — project root is mounted at /usr/local/airflow/project inside Docker.
+  # These paths are used by dbt's read_json_auto() in staging models.
+  google_calendar_events_path: "/usr/local/airflow/project/raw_data/google_calendar/events/*/*.json"
+  alpaca_orders_path: "/usr/local/airflow/project/raw_data/alpaca/orders/*/*.json"
+  plaid_transactions_path: "/usr/local/airflow/project/raw_data/plaid/transactions/*/*.json"

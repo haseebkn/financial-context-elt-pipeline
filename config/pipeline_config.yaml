@@ -1,0 +1,20 @@
+# Financial & Communication Context Engine Pipeline Configuration
+
+global:
+  raw_data_dir: "e:/Financial Data Engineering Pipeline/raw_data"
+  environment: "development"
+
+extractors:
+  google_calendar:
+    history_days: 90
+    max_results: 250 # Max results per page
+    scopes:
+      - "https://www.googleapis.com/auth/calendar.readonly"
+
+  alpaca:
+    orders_limit: 500 # Batch size limit per pagination step
+    history_days: 90  # Default depth of extraction
+
+  plaid:
+    history_days: 90
+    batch_size: 100  # Transaction download page size

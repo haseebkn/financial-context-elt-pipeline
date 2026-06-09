@@ -1,0 +1,59 @@
+version: '3.1'
+
+services:
+  webserver:
+    volumes:
+      # Mount parent root workspace folder to /usr/local/airflow/project inside containers
+      - ..:/usr/local/airflow/project
+    environment:
+      - PYTHONUNBUFFERED=1
+      # Configure container to write/read landing zone within volume mount
+      - RAW_DATA_DIR=/usr/local/airflow/project/raw_data
+      - GOOGLE_APPLICATION_CREDENTIALS=/usr/local/airflow/project/credentials.json
+      - GOOGLE_TOKEN_PATH=/usr/local/airflow/project/token.json
+      # AWS S3 Cloud Integration Credentials
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_DEFAULT_REGION
+      - AWS_S3_BUCKET
+      # Alpaca API Credentials
+      - ALPACA_API_KEY_ID
+      - ALPACA_API_SECRET_KEY
+      - ALPACA_IS_PAPER
+      # Plaid API Credentials
+      - PLAID_CLIENT_ID
+      - PLAID_SECRET
+      - PLAID_ENVIRONMENT
+      - PLAID_ACCESS_TOKEN
+
+  scheduler:
+    volumes:
+      - ..:/usr/local/airflow/project
+    environment:
+      - PYTHONUNBUFFERED=1
+      - RAW_DATA_DIR=/usr/local/airflow/project/raw_data
+      - GOOGLE_APPLICATION_CREDENTIALS=/usr/local/airflow/project/credentials.json
+      - GOOGLE_TOKEN_PATH=/usr/local/airflow/project/token.json
+      # AWS S3 Cloud Integration Credentials
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_DEFAULT_REGION
+      - AWS_S3_BUCKET
+      # Alpaca API Credentials
+      - ALPACA_API_KEY_ID
+      - ALPACA_API_SECRET_KEY
+      - ALPACA_IS_PAPER
+      # Plaid API Credentials
+      - PLAID_CLIENT_ID
+      - PLAID_SECRET
+      - PLAID_ENVIRONMENT
+      - PLAID_ACCESS_TOKEN
+
+  triggerer:
+    volumes:
+      - ..:/usr/local/airflow/project
+
+  postgres:
+    # Forward the built-in postgres port 5432 to host port 5435
+    ports:
+      - "5435:5432"
