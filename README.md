@@ -114,7 +114,7 @@ Create a `.env` file in the project root directory and populate it with your cre
 # General Configuration
 ENVIRONMENT=development
 LOG_LEVEL=INFO
-RAW_DATA_DIR=e:/Financial Data Engineering Pipeline/raw_data
+RAW_DATA_DIR=./raw_data
 
 # Alpaca Markets API Credentials (Paper/Sandbox)
 ALPACA_API_KEY_ID=your_alpaca_key
@@ -129,8 +129,8 @@ PLAID_ACCESS_TOKEN=your_plaid_access_token
 
 # Google Calendar API Credentials
 # (Ensure credentials.json is placed in the root directory for initial login auth flow)
-GOOGLE_APPLICATION_CREDENTIALS=e:/Financial Data Engineering Pipeline/credentials.json
-GOOGLE_TOKEN_PATH=e:/Financial Data Engineering Pipeline/token.json
+GOOGLE_APPLICATION_CREDENTIALS=./credentials.json
+GOOGLE_TOKEN_PATH=./token.json
 GOOGLE_CALENDAR_ID=primary
 
 # AWS S3 Cloud Integration (State backup)
