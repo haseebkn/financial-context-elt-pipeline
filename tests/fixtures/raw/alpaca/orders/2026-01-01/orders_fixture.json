@@ -1,0 +1,35 @@
+{
+  "metadata": {
+    "extracted_at": "2026-01-01T09:00:00.000000+00:00",
+    "source": "alpaca",
+    "resource": "orders",
+    "run_id": "ci-fixture-run-002",
+    "partition_date": "2026-01-01"
+  },
+  "raw_payload": [
+    {
+      "id": "fixture-order-1",
+      "client_order_id": "client-fixture-order-1",
+      "symbol": "AAPL",
+      "qty": "5",
+      "type": "market",
+      "side": "buy",
+      "status": "filled",
+      "created_at": "2026-01-02T14:30:00.000000Z",
+      "filled_at": "2026-01-02T14:30:05.000000Z",
+      "filled_avg_price": "190.25"
+    },
+    {
+      "id": "fixture-order-2",
+      "client_order_id": "client-fixture-order-2",
+      "symbol": "MSFT",
+      "qty": "2",
+      "type": "limit",
+      "side": "sell",
+      "status": "new",
+      "created_at": "2026-01-03T10:15:00.000000Z",
+      "filled_at": null,
+      "filled_avg_price": null
+    }
+  ]
+}

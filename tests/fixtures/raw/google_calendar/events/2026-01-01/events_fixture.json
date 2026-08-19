@@ -1,0 +1,37 @@
+{
+  "metadata": {
+    "extracted_at": "2026-01-01T09:00:00.000000+00:00",
+    "source": "google_calendar",
+    "resource": "events",
+    "run_id": "ci-fixture-run-001",
+    "partition_date": "2026-01-01"
+  },
+  "raw_payload": {
+    "kind": "calendar#events",
+    "summary": "ci-fixture@example.com",
+    "items": [
+      {
+        "kind": "calendar#event",
+        "id": "fixture-event-1",
+        "status": "confirmed",
+        "summary": "Dentist Appointment",
+        "description": "Annual checkup",
+        "start": { "dateTime": "2026-01-05T14:00:00-05:00" },
+        "end": { "dateTime": "2026-01-05T15:00:00-05:00" },
+        "organizer": { "email": "ci-fixture@example.com" },
+        "location": "123 Main St"
+      },
+      {
+        "kind": "calendar#event",
+        "id": "fixture-event-2",
+        "status": "confirmed",
+        "summary": "Team Standup",
+        "description": "",
+        "start": { "dateTime": "2026-01-06T09:00:00-05:00" },
+        "end": { "dateTime": "2026-01-06T09:15:00-05:00" },
+        "organizer": { "email": "ci-fixture@example.com" },
+        "location": null
+      }
+    ]
+  }
+}

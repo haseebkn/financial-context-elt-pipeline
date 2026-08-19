@@ -1,7 +1,8 @@
 {{
   config(
     materialized='incremental',
-    unique_key='row_id'
+    unique_key='row_id',
+    incremental_strategy='delete+insert'
   )
 }}
 
@@ -10,11 +11,12 @@ WITH calendar_events AS (
         'calendar_' || event_id AS row_id,
         'calendar' AS source,
         start_time AS event_timestamp,
+        extracted_at,
         -- Generate narrative text summary for context
-        'Calendar Event: ' || COALESCE(summary, '(No Title)') || 
-        ' at ' || COALESCE(location, 'No Location') || 
-        ' from ' || COALESCE(strftime(start_time, '%Y-%m-%d %H:%M'), 'N/A') || 
-        ' to ' || COALESCE(strftime(end_time, '%Y-%m-%d %H:%M'), 'N/A') || 
+        'Calendar Event: ' || COALESCE(summary, '(No Title)') ||
+        ' at ' || COALESCE(location, 'No Location') ||
+        ' from ' || COALESCE(strftime(start_time, '%Y-%m-%d %H:%M'), 'N/A') ||
+        ' to ' || COALESCE(strftime(end_time, '%Y-%m-%d %H:%M'), 'N/A') ||
         '. Description: ' || COALESCE(description, '(None)') AS summary_text,
         -- Construct JSON string for structured fallback
         to_json({
@@ -34,11 +36,12 @@ plaid_transactions AS (
         'plaid_' || transaction_id AS row_id,
         'plaid' AS source,
         CAST(transaction_date AS TIMESTAMP) AS event_timestamp,
+        extracted_at,
         -- Generate narrative text summary depending on transaction type
         CASE
             WHEN amount > 0 THEN 'Financial Transaction: Spent $' || CAST(amount AS VARCHAR) || ' at ' || COALESCE(name, 'unknown vendor')
             ELSE 'Financial Transaction: Received $' || CAST(ABS(amount) AS VARCHAR) || ' at ' || COALESCE(name, 'unknown vendor')
-        END || ' under category ' || COALESCE(primary_category, 'General') || 
+        END || ' under category ' || COALESCE(primary_category, 'General') ||
         ' on ' || strftime(transaction_date, '%Y-%m-%d') || '.' AS summary_text,
         to_json({
             'transaction_id': transaction_id,
@@ -63,11 +66,12 @@ alpaca_orders AS (
         'alpaca_' || order_id AS row_id,
         'alpaca' AS source,
         created_at AS event_timestamp,
+        extracted_at,
         -- Generate narrative text summary for Alpaca transactions
-        'Financial Trade: ' || COALESCE(UPPER(side), 'UNKNOWN SIDE') || 
-        ' order of ' || CAST(quantity AS VARCHAR) || ' shares of ' || symbol || 
-        ' (' || order_type || ') was ' || status || 
-        ' at average price $' || COALESCE(CAST(filled_avg_price AS VARCHAR), 'N/A') || 
+        'Financial Trade: ' || COALESCE(UPPER(side), 'UNKNOWN SIDE') ||
+        ' order of ' || CAST(quantity AS VARCHAR) || ' shares of ' || symbol ||
+        ' (' || order_type || ') was ' || status ||
+        ' at average price $' || COALESCE(CAST(filled_avg_price AS VARCHAR), 'N/A') ||
         ' on ' || strftime(created_at, '%Y-%m-%d %H:%M') || '.' AS summary_text,
         to_json({
             'order_id': order_id,
@@ -95,11 +99,16 @@ SELECT
     row_id,
     source,
     event_timestamp,
+    extracted_at,
     summary_text,
     raw_payload
 FROM unioned
 
 {% if is_incremental() %}
-  -- On incremental runs, only process rows newer than the current maximum timestamp
-  WHERE event_timestamp > (SELECT MAX(event_timestamp) FROM {{ this }})
+  -- On incremental runs, only reprocess rows extracted since the last run.
+  -- Watermarking on extracted_at (not event_timestamp) ensures a row whose
+  -- underlying state changes after first ingest (a filled order, an updated
+  -- or removed Plaid transaction) is re-picked-up and merged via unique_key,
+  -- rather than silently excluded because its event_timestamp is in the past.
+  WHERE extracted_at > (SELECT COALESCE(MAX(extracted_at), '1970-01-01'::TIMESTAMP) FROM {{ this }})
 {% endif %}

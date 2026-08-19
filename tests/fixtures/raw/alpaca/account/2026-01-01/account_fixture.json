@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "extracted_at": "2026-01-01T09:00:00.000000+00:00",
+    "source": "alpaca",
+    "resource": "account",
+    "run_id": "ci-fixture-run-004",
+    "partition_date": "2026-01-01"
+  },
+  "raw_payload": {
+    "id": "fixture-account-1",
+    "status": "ACTIVE",
+    "cash": "100000",
+    "equity": "100000",
+    "portfolio_value": "100000",
+    "buying_power": "400000",
+    "long_market_value": "0",
+    "short_market_value": "0"
+  }
+}

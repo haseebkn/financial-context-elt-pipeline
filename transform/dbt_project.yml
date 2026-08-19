@@ -38,8 +38,13 @@ models:
       # For fct_context_rows, we'll configure unique_key='row_id' in the model.
 
 vars:
-  # Container mount path — project root is mounted at /usr/local/airflow/project inside Docker.
-  # These paths are used by dbt's read_json_auto() in staging models.
-  google_calendar_events_path: "/usr/local/airflow/project/raw_data/google_calendar/events/*/*.json"
-  alpaca_orders_path: "/usr/local/airflow/project/raw_data/alpaca/orders/*/*.json"
-  plaid_transactions_path: "/usr/local/airflow/project/raw_data/plaid/transactions/*/*.json"
+  # RAW_DATA_ROOT overrides the raw_data location for dbt's read_json_auto() calls.
+  # Default resolves relative to the `transform/` directory (dbt build is run via
+  # `cd transform && dbt build`, so `../raw_data` points at the repo-root landing zone).
+  # Docker/Airflow sets RAW_DATA_ROOT=/usr/local/airflow/project/raw_data instead
+  # (see orchestration/docker-compose.override.yml).
+  google_calendar_events_path: "{{ env_var('RAW_DATA_ROOT', '../raw_data') }}/google_calendar/events/*/*.json"
+  alpaca_orders_path: "{{ env_var('RAW_DATA_ROOT', '../raw_data') }}/alpaca/orders/*/*.json"
+  alpaca_account_path: "{{ env_var('RAW_DATA_ROOT', '../raw_data') }}/alpaca/account/*/*.json"
+  plaid_transactions_path: "{{ env_var('RAW_DATA_ROOT', '../raw_data') }}/plaid/transactions/*/*.json"
+  agent_traces_path: "{{ env_var('RAW_DATA_ROOT', '../raw_data') }}/agent_traces/*/*.json"

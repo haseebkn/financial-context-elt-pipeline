@@ -9,34 +9,34 @@ sources:
       - name: google_calendar_events
         description: "Partitioned Google Calendar events JSON files"
         meta:
-          path: "e:/Financial Data Engineering Pipeline/raw_data/google_calendar/events/*/*.json"
+          path: "../raw_data/google_calendar/events/*/*.json"
 
       - name: alpaca_account
         description: "Alpaca account profile JSON files"
         meta:
-          path: "e:/Financial Data Engineering Pipeline/raw_data/alpaca/account/*/*.json"
+          path: "../raw_data/alpaca/account/*/*.json"
 
       - name: alpaca_positions
         description: "Alpaca portfolio positions JSON files"
         meta:
-          path: "e:/Financial Data Engineering Pipeline/raw_data/alpaca/positions/*/*.json"
+          path: "../raw_data/alpaca/positions/*/*.json"
 
       - name: alpaca_orders
         description: "Alpaca order history JSON files"
         meta:
-          path: "e:/Financial Data Engineering Pipeline/raw_data/alpaca/orders/*/*.json"
+          path: "../raw_data/alpaca/orders/*/*.json"
 
       - name: plaid_accounts
         description: "Plaid account listings JSON files"
         meta:
-          path: "e:/Financial Data Engineering Pipeline/raw_data/plaid/accounts/*/*.json"
+          path: "../raw_data/plaid/accounts/*/*.json"
 
       - name: plaid_balances
         description: "Plaid balance check JSON files"
         meta:
-          path: "e:/Financial Data Engineering Pipeline/raw_data/plaid/balances/*/*.json"
+          path: "../raw_data/plaid/balances/*/*.json"
 
       - name: plaid_transactions
         description: "Plaid transactions delta updates JSON files"
         meta:
-          path: "e:/Financial Data Engineering Pipeline/raw_data/plaid/transactions/*/*.json"
+          path: "../raw_data/plaid/transactions/*/*.json"
