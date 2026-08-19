@@ -1,0 +1,103 @@
+version: 2
+
+models:
+  # ---------------------------------------------------------------------
+  # Staging: raw JSON parsed into typed columns. No deduplication yet, so
+  # business keys are NOT unique here — the same event/transaction/order
+  # can appear once per extraction snapshot. Only assert presence.
+  # ---------------------------------------------------------------------
+  - name: stg_calendar_events
+    description: "Parsed Google Calendar events, one row per extraction snapshot."
+    columns:
+      - name: event_id
+        tests:
+          - not_null
+      - name: extracted_at
+        tests:
+          - not_null
+
+  - name: stg_plaid_transactions
+    description: "Parsed Plaid transaction sync deltas (added/modified/removed), one row per snapshot."
+    columns:
+      - name: transaction_id
+        tests:
+          - not_null
+      - name: sync_action
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['added', 'modified', 'removed']
+
+  - name: stg_alpaca_orders
+    description: "Parsed Alpaca order history, one row per extraction snapshot."
+    columns:
+      - name: order_id
+        tests:
+          - not_null
+
+  # ---------------------------------------------------------------------
+  # Intermediate: deduplicated to the freshest state per business key.
+  # Business keys ARE unique here.
+  # ---------------------------------------------------------------------
+  - name: int_calendar_events
+    description: "One row per calendar event, freshest extraction only."
+    columns:
+      - name: event_id
+        tests:
+          - not_null
+          - unique
+
+  - name: int_plaid_transactions
+    description: "One row per live Plaid transaction (removed transactions excluded), freshest state only."
+    columns:
+      - name: transaction_id
+        tests:
+          - not_null
+          - unique
+      - name: amount
+        tests:
+          - not_null
+
+  # ---------------------------------------------------------------------
+  # Marts: the unified context feed consumed by the vector pipeline.
+  # ---------------------------------------------------------------------
+  - name: fct_context_rows
+    description: "Unified, embedding-ready narrative rows across calendar, Plaid, and Alpaca sources."
+    columns:
+      - name: row_id
+        tests:
+          - not_null
+          - unique
+      - name: source
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['calendar', 'plaid', 'alpaca']
+      - name: event_timestamp
+        tests:
+          - not_null
+      - name: extracted_at
+        tests:
+          - not_null
+      - name: summary_text
+        tests:
+          - not_null
+
+  - name: dim_account_snapshot
+    description: "Alpaca account balance/equity history, one row per extraction snapshot. Materialized as a table (not a view) so it's queryable regardless of the calling process's working directory — see the model's own header comment."
+    columns:
+      - name: account_id
+        tests:
+          - not_null
+      - name: extracted_at
+        tests:
+          - not_null
+
+  - name: fct_agent_traces
+    description: "One row per completed agent turn (src/lib/trace-writer.ts). May legitimately be empty — see stg_agent_traces.sql's header comment for why a missing raw_data/agent_traces/ directory doesn't break the build."
+    columns:
+      - name: trace_id
+        tests:
+          - unique
