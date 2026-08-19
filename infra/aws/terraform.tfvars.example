@@ -1,0 +1,13 @@
+aws_region   = "us-east-1"
+project_name = "financial-context"
+environment  = "prod"
+
+# Secrets — do not commit a real terraform.tfvars with these filled in.
+# Prefer TF_VAR_anthropic_api_key / TF_VAR_retrieval_service_token env vars,
+# or a secrets-manager-backed CI runner, over a plaintext tfvars file.
+anthropic_api_key       = "sk-ant-..."
+retrieval_service_token = "generate-a-long-random-string"
+
+agent_image_tag     = "latest"
+web_image_tag       = "latest"
+retrieval_image_tag = "latest"

@@ -1,0 +1,66 @@
+name: Deploy to AWS
+
+# Manual only — this pushes real images to ECR and redeploys live ECS
+# services. Requires AWS_ROLE_ARN (an OIDC-assumable role with ECR push +
+# ECS update-service permissions) configured as a repo secret; see
+# infra/aws/README.md for the underlying infrastructure.
+on:
+  workflow_dispatch:
+    inputs:
+      services:
+        description: "Comma-separated services to build & deploy (agent,web,retrieval)"
+        default: "agent,web,retrieval"
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY_ALIAS: financial-context
+  ECS_CLUSTER: financial-context-cluster
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, push, and redeploy each requested service
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          SERVICES: ${{ github.event.inputs.services }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          IFS=',' read -ra SVCS <<< "$SERVICES"
+          for svc in "${SVCS[@]}"; do
+            case "$svc" in
+              agent)     dockerfile="agent/Dockerfile" ;;
+              web)       dockerfile="web/Dockerfile" ;;
+              retrieval) dockerfile="vector_prep/Dockerfile" ;;
+              *) echo "Unknown service: $svc" >&2; exit 1 ;;
+            esac
+
+            repo="$REGISTRY/$ECR_REGISTRY_ALIAS/$svc"
+            docker build -f "$dockerfile" -t "$repo:$IMAGE_TAG" -t "$repo:latest" .
+            docker push "$repo:$IMAGE_TAG"
+            docker push "$repo:latest"
+
+            aws ecs update-service \
+              --cluster "$ECS_CLUSTER" \
+              --service "$ECR_REGISTRY_ALIAS-$svc" \
+              --force-new-deployment \
+              --region "$AWS_REGION"
+          done
