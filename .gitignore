@@ -24,6 +24,10 @@ raw_data/
 *.db.wal
 vector_store/
 
+# Node
+node_modules/
+dist/
+
 # Logs & Target files
 logs/
 *.log
