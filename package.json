@@ -1,0 +1,8 @@
+{
+  "name": "financial-context-elt-pipeline",
+  "private": true,
+  "workspaces": [
+    "agent",
+    "web"
+  ]
+}
