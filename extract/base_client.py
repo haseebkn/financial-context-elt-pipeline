@@ -1,4 +1,3 @@
-import os
 import sys
 import logging
 from abc import ABC, abstractmethod
@@ -16,6 +15,8 @@ from tenacity import (
 )
 import requests
 
+from config.settings import settings
+
 # Load environment variables
 load_dotenv()
 
@@ -23,7 +24,7 @@ load_dotenv()
 logging.basicConfig(
     format="%(message)s",
     stream=sys.stdout,
-    level=os.getenv("LOG_LEVEL", "INFO").upper(),
+    level=settings.log_level.upper(),
 )
 structlog.configure(
     processors=[
@@ -41,8 +42,9 @@ structlog.configure(
 )
 logger = structlog.get_logger("base_client")
 
+
 # Define retry-able exceptions across different SDKs/libraries
-def is_retryable_exception(exception: Exception) -> bool:
+def is_retryable_exception(exception: BaseException) -> bool:
     """
     Determines if an exception is transient and should be retried.
     Catches 429 (Rate Limit) and 5xx (Server Error) across standard libs and SDKs.
@@ -60,6 +62,7 @@ def is_retryable_exception(exception: Exception) -> bool:
     # We import dynamically to avoid strict dependencies in base client import
     try:
         from googleapiclient.errors import HttpError
+
         if isinstance(exception, HttpError):
             status = exception.resp.status
             return status == 429 or 500 <= status < 600
@@ -69,6 +72,7 @@ def is_retryable_exception(exception: Exception) -> bool:
     # 3. Plaid API Exception
     try:
         from plaid.exceptions import ApiException
+
         if isinstance(exception, ApiException):
             # Plaid ApiException has status property
             status = getattr(exception, "status", None)
@@ -80,28 +84,36 @@ def is_retryable_exception(exception: Exception) -> bool:
     # 4. Alpaca API Exception
     try:
         from alpaca.common.exceptions import APIError
+
         if isinstance(exception, APIError):
-            # Alpaca APIError message or status check
-            # For tenacity, if it's Alpaca's error, it could represent a rate limit (429)
-            # or server error (500). Let's retry on rate limits or internal server errors.
-            code = getattr(exception, "code", None)
-            if code is not None:
-                try:
-                    code_val = int(code)
-                    return code_val == 429 or 500 <= code_val < 600
-                except ValueError:
-                    pass
-            # Fallback check on string representations if needed
+            # NOTE: APIError.code is Alpaca's own domain-specific error code
+            # (e.g. 42910000), not an HTTP status — comparing it to 429/5xx
+            # never matches, and it raises JSONDecodeError when the error
+            # body isn't valid JSON. Use .status_code (the real HTTP status,
+            # available when the SDK attached the underlying HTTP error).
+            status_code = getattr(exception, "status_code", None)
+            if status_code is not None:
+                return status_code == 429 or 500 <= status_code < 600
+            # No structured HTTP status available — fall back to message sniffing.
             err_str = str(exception).lower()
-            return "429" in err_str or "rate limit" in err_str or "500" in err_str or "server error" in err_str
+            return (
+                "429" in err_str
+                or "rate limit" in err_str
+                or "500" in err_str
+                or "server error" in err_str
+            )
     except ImportError:
         pass
 
     # Fallback check on standard timeout errors
-    if "timeout" in str(exception).lower() or "connection pool" in str(exception).lower():
+    if (
+        "timeout" in str(exception).lower()
+        or "connection pool" in str(exception).lower()
+    ):
         return True
 
     return False
+
 
 # Base retry configuration: Exponential Backoff + Jitter
 # multiplier=1, min=1, max=60 with wait_random(0, 2) is exponential backoff with full jitter.
@@ -114,6 +126,7 @@ api_retry_decorator = retry(
     before_sleep=before_sleep_log(logger, logging.WARNING),
 )
 
+
 class BaseAPIClient(ABC):
     """
     Abstract base class for all API extractors.
@@ -123,7 +136,7 @@ class BaseAPIClient(ABC):
     def __init__(self, config_path: str = "config/pipeline_config.yaml"):
         self.logger = structlog.get_logger(self.__class__.__name__)
         self.config = self._load_config(config_path)
-        self.raw_data_dir = os.getenv("RAW_DATA_DIR", self.config.get("global", {}).get("raw_data_dir", "raw_data"))
+        self.raw_data_dir = settings.raw_data_dir
 
     def _load_config(self, config_path: str) -> Dict[str, Any]:
         """Loads yaml configuration safely."""
@@ -131,7 +144,9 @@ class BaseAPIClient(ABC):
             with open(config_path, "r") as f:
                 return yaml.safe_load(f)
         except Exception as e:
-            logger.error("Failed to load pipeline configuration", path=config_path, error=str(e))
+            logger.error(
+                "Failed to load pipeline configuration", path=config_path, error=str(e)
+            )
             return {}
 
     @abstractmethod

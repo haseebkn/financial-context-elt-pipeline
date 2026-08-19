@@ -30,7 +30,7 @@ def main():
         query_text = "transaction or bank transfer"
         logger.info("Executing sample query...", query=query_text)
         
-        query_embeddings = model.encode([query_text]).tolist()
+        query_embeddings = model.encode([query_text], normalize_embeddings=True).tolist()
         
         results = collection.query(
             query_embeddings=query_embeddings,
@@ -41,7 +41,7 @@ def main():
         for idx in range(len(results['ids'][0])):
             print(f"\n[{idx + 1}] ID: {results['ids'][0][idx]}")
             print(f"    Document: {results['documents'][0][idx]}")
-            print(f"    Distance (L2): {results['distances'][0][idx]:.4f}")
+            print(f"    Cosine distance: {results['distances'][0][idx]:.4f}  (similarity: {1 - results['distances'][0][idx]:.4f})")
             print(f"    Metadata: {results['metadatas'][0][idx]}")
             
     except Exception as e:

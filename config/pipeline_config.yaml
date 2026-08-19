@@ -1,7 +1,7 @@
 # Financial & Communication Context Engine Pipeline Configuration
 
 global:
-  raw_data_dir: "e:/Financial Data Engineering Pipeline/raw_data"
+  raw_data_dir: "raw_data"
   environment: "development"
 
 extractors:

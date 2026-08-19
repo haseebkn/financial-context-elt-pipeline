@@ -6,6 +6,8 @@ from plaid.model.accounts_get_request import AccountsGetRequest
 from plaid.model.accounts_balance_get_request import AccountsBalanceGetRequest
 from plaid.model.transactions_sync_request import TransactionsSyncRequest
 from extract.base_client import BaseAPIClient
+from config.settings import settings
+
 
 class PlaidExtractor(BaseAPIClient):
     """
@@ -17,11 +19,14 @@ class PlaidExtractor(BaseAPIClient):
     def __init__(self, config_path: str = "config/pipeline_config.yaml"):
         super().__init__(config_path)
         self.plaid_config = self.config.get("extractors", {}).get("plaid", {})
-        
-        self.client_id = os.getenv("PLAID_CLIENT_ID")
-        self.secret = os.getenv("PLAID_SECRET")
-        self.access_token = os.getenv("PLAID_ACCESS_TOKEN")
-        self.env_name = os.getenv("PLAID_ENVIRONMENT", self.plaid_config.get("environment", "sandbox")).lower()
+
+        self.client_id = settings.plaid_client_id
+        self.secret = settings.plaid_secret
+        self.access_token = settings.plaid_access_token
+        self.env_name = os.getenv(
+            "PLAID_ENVIRONMENT",
+            self.plaid_config.get("environment", settings.plaid_environment),
+        ).lower()
 
         if not self.client_id or not self.secret or not self.access_token:
             raise ValueError(
@@ -33,14 +38,20 @@ class PlaidExtractor(BaseAPIClient):
         # Note: Plaid deprecated the Development environment in late 2023.
         # Newer SDK versions only define Sandbox and Production. We support development as a string fallback.
         env_map = {
-            "sandbox": getattr(plaid.Environment, "Sandbox", "https://sandbox.plaid.com"),
+            "sandbox": getattr(
+                plaid.Environment, "Sandbox", "https://sandbox.plaid.com"
+            ),
             "development": "https://development.plaid.com",
-            "production": getattr(plaid.Environment, "Production", "https://production.plaid.com"),
+            "production": getattr(
+                plaid.Environment, "Production", "https://production.plaid.com"
+            ),
         }
-        
+
         host = env_map.get(self.env_name)
         if not host:
-            raise ValueError(f"Invalid Plaid Environment: {self.env_name}. Choose sandbox, development, or production.")
+            raise ValueError(
+                f"Invalid Plaid Environment: {self.env_name}. Choose sandbox, development, or production."
+            )
 
         # Initialize the Plaid Client
         configuration = plaid.Configuration(
@@ -48,7 +59,7 @@ class PlaidExtractor(BaseAPIClient):
             api_key={
                 "clientId": self.client_id,
                 "secret": self.secret,
-            }
+            },
         )
         self.api_client = plaid.ApiClient(configuration)
         self.client = plaid_api.PlaidApi(self.api_client)
@@ -63,7 +74,7 @@ class PlaidExtractor(BaseAPIClient):
         """Fetches list of accounts linked to the access token."""
         self.logger.info("Extracting Plaid accounts details")
         request = AccountsGetRequest(access_token=self.access_token)
-        
+
         # Call API using resilience wrapper
         response = self.execute_with_resilience(self.client.accounts_get, request)
         return self._serialize_response(response)
@@ -72,48 +83,54 @@ class PlaidExtractor(BaseAPIClient):
         """Fetches real-time account balances."""
         self.logger.info("Extracting Plaid balances details")
         request = AccountsBalanceGetRequest(access_token=self.access_token)
-        
-        response = self.execute_with_resilience(self.client.accounts_balance_get, request)
+
+        response = self.execute_with_resilience(
+            self.client.accounts_balance_get, request
+        )
         return self._serialize_response(response)
 
-    def extract_transactions(self, initial_cursor: str = "") -> Generator[Dict[str, Any], None, None]:
+    def extract_transactions(
+        self, initial_cursor: str = ""
+    ) -> Generator[Dict[str, Any], None, None]:
         """
         Syncs transactions using Plaid's /transactions/sync endpoint.
         Paginates using the next_cursor until has_more is False.
         """
         cursor = initial_cursor
         batch_size = self.plaid_config.get("batch_size", 100)
-        self.logger.info("Starting Plaid transactions sync", cursor=cursor, batch_size=batch_size)
+        self.logger.info(
+            "Starting Plaid transactions sync", cursor=cursor, batch_size=batch_size
+        )
 
         while True:
             request = TransactionsSyncRequest(
-                access_token=self.access_token,
-                cursor=cursor,
-                count=batch_size
+                access_token=self.access_token, cursor=cursor, count=batch_size
             )
-            
+
             self.logger.debug("Requesting Plaid transactions sync page", cursor=cursor)
-            response = self.execute_with_resilience(self.client.transactions_sync, request)
+            response = self.execute_with_resilience(
+                self.client.transactions_sync, request
+            )
             response_dict = self._serialize_response(response)
-            
+
             # Yield this batch of updates
             yield response_dict
-            
+
             # Retrieve pagination loop parameters
             has_more = response_dict.get("has_more", False)
             cursor = response_dict.get("next_cursor", "")
-            
+
             added = len(response_dict.get("added", []))
             modified = len(response_dict.get("modified", []))
             removed = len(response_dict.get("removed", []))
-            
+
             self.logger.info(
                 "Plaid sync page parsed",
                 added=added,
                 modified=modified,
                 removed=removed,
                 has_more=has_more,
-                next_cursor=cursor
+                next_cursor=cursor,
             )
 
             if not has_more:
@@ -150,12 +167,15 @@ class PlaidExtractor(BaseAPIClient):
             self.logger.error("Failed to sync Plaid transactions", error=str(e))
             raise e
 
+
 if __name__ == "__main__":
     try:
         extractor = PlaidExtractor()
         for idx, dataset in enumerate(extractor.extract()):
             res = dataset["resource"]
             data = dataset["data"]
-            print(f"Dataset {idx}: Resource '{res}' keys: {list(data.keys()) if isinstance(data, dict) else len(data)}")
+            print(
+                f"Dataset {idx}: Resource '{res}' keys: {list(data.keys()) if isinstance(data, dict) else len(data)}"
+            )
     except Exception as err:
         print(f"Extraction error: {err}")

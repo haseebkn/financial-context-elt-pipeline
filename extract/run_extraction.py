@@ -10,27 +10,28 @@ from extract.google_calendar_extractor import GoogleCalendarExtractor
 from extract.alpaca_extractor import AlpacaExtractor
 from extract.plaid_extractor import PlaidExtractor
 from load.file_writer import RawFileWriter
+from config.settings import settings
 
 logger = structlog.get_logger("run_extraction")
 
+
 def main():
     load_dotenv()
-    logger.info("Initializing Financial & Communication Context Engine - Ingestion Phase 1")
+    logger.info(
+        "Initializing Financial & Communication Context Engine - Ingestion Phase 1"
+    )
 
     # Initialize landing zone file writer
-    raw_data_dir = os.getenv("RAW_DATA_DIR", "raw_data")
-    writer = RawFileWriter(base_dir=raw_data_dir)
+    writer = RawFileWriter(base_dir=settings.raw_data_dir)
 
     # 1. Google Calendar Extraction
-    if os.path.exists(os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "credentials.json")):
+    if os.path.exists(settings.google_application_credentials):
         try:
             logger.info("Starting Google Calendar Extraction Phase...")
             calendar_extractor = GoogleCalendarExtractor()
             for idx, response_page in enumerate(calendar_extractor.extract()):
                 writer.write_record(
-                    source="google_calendar",
-                    resource="events",
-                    payload=response_page
+                    source="google_calendar", resource="events", payload=response_page
                 )
             logger.info("Google Calendar Ingestion Complete.")
         except Exception as e:
@@ -42,7 +43,7 @@ def main():
         )
 
     # 2. Alpaca Markets Extraction
-    if os.getenv("ALPACA_API_KEY_ID") and os.getenv("ALPACA_API_SECRET_KEY"):
+    if settings.alpaca_api_key_id and settings.alpaca_api_secret_key:
         try:
             logger.info("Starting Alpaca Markets Extraction Phase...")
             alpaca_extractor = AlpacaExtractor()
@@ -50,16 +51,22 @@ def main():
                 writer.write_record(
                     source="alpaca",
                     resource=dataset["resource"],
-                    payload=dataset["data"]
+                    payload=dataset["data"],
                 )
             logger.info("Alpaca Markets Ingestion Complete.")
         except Exception as e:
             logger.error("Alpaca Ingestion failed", error=str(e))
     else:
-        logger.warning("Skipping Alpaca Ingestion: ALPACA_API_KEY_ID or ALPACA_API_SECRET_KEY environment variables not set.")
+        logger.warning(
+            "Skipping Alpaca Ingestion: ALPACA_API_KEY_ID or ALPACA_API_SECRET_KEY environment variables not set."
+        )
 
     # 3. Plaid Extraction
-    if os.getenv("PLAID_CLIENT_ID") and os.getenv("PLAID_SECRET") and os.getenv("PLAID_ACCESS_TOKEN"):
+    if (
+        settings.plaid_client_id
+        and settings.plaid_secret
+        and settings.plaid_access_token
+    ):
         try:
             logger.info("Starting Plaid Extraction Phase...")
             plaid_extractor = PlaidExtractor()
@@ -67,7 +74,7 @@ def main():
                 writer.write_record(
                     source="plaid",
                     resource=dataset["resource"],
-                    payload=dataset["data"]
+                    payload=dataset["data"],
                 )
             logger.info("Plaid Ingestion Complete.")
         except Exception as e:
@@ -79,6 +86,7 @@ def main():
         )
 
     logger.info("Phase 1 Extraction Run execution completed.")
+
 
 if __name__ == "__main__":
     main()

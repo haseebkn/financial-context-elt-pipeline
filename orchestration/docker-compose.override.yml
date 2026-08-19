@@ -9,6 +9,7 @@ services:
       - PYTHONUNBUFFERED=1
       # Configure container to write/read landing zone within volume mount
       - RAW_DATA_DIR=/usr/local/airflow/project/raw_data
+      - RAW_DATA_ROOT=/usr/local/airflow/project/raw_data
       - GOOGLE_APPLICATION_CREDENTIALS=/usr/local/airflow/project/credentials.json
       - GOOGLE_TOKEN_PATH=/usr/local/airflow/project/token.json
       # AWS S3 Cloud Integration Credentials
@@ -32,6 +33,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - RAW_DATA_DIR=/usr/local/airflow/project/raw_data
+      - RAW_DATA_ROOT=/usr/local/airflow/project/raw_data
       - GOOGLE_APPLICATION_CREDENTIALS=/usr/local/airflow/project/credentials.json
       - GOOGLE_TOKEN_PATH=/usr/local/airflow/project/token.json
       # AWS S3 Cloud Integration Credentials
