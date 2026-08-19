@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Lint, type-check, unit tests, dbt build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        # torch/torchvision pin a CUDA index in requirements.txt, which is
+        # both unnecessary (CI has no GPU) and enormous — install a CPU-only
+        # torch instead. chromadb and sentence-transformers still install
+        # normally: tests/test_retrieval_service.py imports
+        # vector_prep.retrieval_service, which imports both at module level
+        # even though it only loads the real model inside its lifespan
+        # handler, so they can't be skipped without breaking test collection.
+        run: |
+          python -m pip install --upgrade pip
+          grep -v -E '^(torch|torchvision)' requirements.txt > /tmp/ci-requirements.txt
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r /tmp/ci-requirements.txt pytest ruff mypy types-PyYAML
+
+      - name: Ruff (lint)
+        run: ruff check extract/ load/ config/ tests/ vector_prep/retrieval_service.py
+
+      - name: Ruff (format check)
+        run: ruff format --check extract/ load/ config/ tests/ vector_prep/retrieval_service.py
+
+      - name: mypy
+        run: python -m mypy extract/ load/ config/ vector_prep/retrieval_service.py
+
+      - name: pytest
+        run: python -m pytest tests/ -v
+
+      - name: dbt build against fixture data
+        working-directory: transform
+        env:
+          RAW_DATA_ROOT: ../tests/fixtures/raw
+        run: |
+          dbt deps || true
+          dbt build --full-refresh
+
+      # --- Node workspaces (agent + web) ---
+      # Runs after the dbt build above so financial_engine.db (fixture data)
+      # already exists at the repo root — the agent's DuckDB-backed tool
+      # tests (query_warehouse, get_portfolio_snapshot, summarize_spend) run
+      # against it directly rather than against mocks.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+
+      - name: Install workspace dependencies
+        run: npm ci
+
+      - name: Agent typecheck
+        working-directory: agent
+        run: npm run typecheck
+
+      - name: Agent unit tests
+        working-directory: agent
+        env:
+          ANTHROPIC_API_KEY: sk-ant-ci-placeholder-not-a-real-key
+          DUCKDB_PATH: ../financial_engine.db
+          RETRIEVAL_SERVICE_URL: http://127.0.0.1:8100
+          RETRIEVAL_SERVICE_TOKEN: ci-placeholder-token
+        run: npm test
+
+      - name: Agent production build
+        working-directory: agent
+        run: npm run build
+
+      - name: Web typecheck
+        working-directory: web
+        run: npm run typecheck
+
+      - name: Web unit tests
+        working-directory: web
+        run: npm test
+
+      - name: Web production build
+        working-directory: web
+        run: npm run build
+
+  dag-integrity:
+    name: Airflow DAG integrity (astro dev parse)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Astro CLI
+        run: curl -sSL install.astronomer.io | sudo bash -s
+
+      - name: Parse DAGs
+        working-directory: orchestration
+        run: astro dev parse
+
+  terraform:
+    name: Terraform validate (infra/aws)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.5"
+
+      - name: Format check
+        working-directory: infra/aws
+        run: terraform fmt -check -recursive
+
+      - name: Init (no backend, no credentials needed for validate)
+        working-directory: infra/aws
+        run: terraform init -backend=false
+
+      - name: Validate
+        working-directory: infra/aws
+        run: terraform validate
