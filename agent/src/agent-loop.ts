@@ -4,7 +4,11 @@ import { randomUUID } from "node:crypto";
 import { env } from "./config.js";
 import { tools } from "./tools/index.js";
 import { SYSTEM_PROMPT } from "./lib/system-prompt.js";
-import { extractRowIdsFromToolResult, validateCitations } from "./lib/citations.js";
+import {
+  extractRowIdsFromToolResult,
+  stripUnsupportedCitations,
+  validateCitations,
+} from "./lib/citations.js";
 import { addUsage, emptyUsage, type RawUsage } from "./lib/usage.js";
 import type { AgentStreamEvent, SpanType } from "./streaming-types.js";
 
@@ -38,8 +42,10 @@ function isToolUseBlock(block: unknown): block is BetaToolUseBlock {
  *   correlating against tool_use_id inside each tool's run() closure, which
  *   betaZodTool does not expose.
  * - Citation validation runs once, after the loop's natural stop. On a
- *   violation, a single non-agentic repair call rewrites the answer with
- *   the offending citations removed — not a second full agentic turn.
+ *   violation the offending brackets are stripped mechanically — no second
+ *   model call. An earlier version asked the model to rewrite the answer
+ *   "removing unsupported citations"; with nothing citable in scope it
+ *   rewrote correct, tool-sourced answers into false denials.
  */
 export async function* runAgentTurn(params: {
   history: BetaMessageParam[];
@@ -214,54 +220,38 @@ export async function* runAgentTurn(params: {
     const citationSpanId = randomUUID();
     const citationSpanStart = Date.now();
     yield { type: "span_start", traceId, spanId: citationSpanId, spanType: "citation_validation" };
-    try {
-      const repairResponse = await client.messages.create({
-        model: env.AGENT_MODEL,
-        max_tokens: MAX_TOKENS,
-        system:
-          "You rewrite an assistant's answer to remove unsupported citations. " +
-          "Remove or rephrase any claim citing a row_id not in the allowed list below; " +
-          "keep everything else verbatim. Do not add new claims or citations.",
-        messages: [
-          {
-            role: "user",
-            content:
-              `Answer to fix:\n${finalText}\n\n` +
-              `Allowed row_ids: ${[...seenRowIds].join(", ") || "(none)"}\n` +
-              `Unsupported citations to remove: ${validation.unsupportedIds.join(", ")}`,
-          },
-        ],
-      });
-      const repairedText = repairResponse.content.filter(isTextBlock).map((b) => b.text).join("\n");
-      usage = addUsage(usage, repairResponse.usage as RawUsage, env.AGENT_MODEL);
 
-      if (repairedText.trim() && repairedText !== finalText) {
-        finalText = repairedText;
-        repaired = true;
-        yield {
-          type: "text_correction",
-          traceId,
-          text: finalText,
-          reason: `Removed unsupported citation(s): ${validation.unsupportedIds.join(", ")}`,
-        };
-      }
-    } catch {
-      // If the repair call itself fails, ship the original answer rather
-      // than losing the response entirely — the unsupported citations are
-      // a quality issue, not a reason to fail the whole turn.
-    } finally {
+    // Deterministic, subtractive repair — no second model call. See
+    // stripUnsupportedCitations() for why the previous LLM rewrite was
+    // removed: asked to "remove unsupported citations" with an empty allowed
+    // list, it rewrote correct answers into false denials.
+    const strippedText = stripUnsupportedCitations(finalText, seenRowIds);
+    if (strippedText.trim() && strippedText !== finalText) {
+      finalText = strippedText;
+      repaired = true;
       yield {
-        type: "span_end",
+        type: "text_correction",
         traceId,
-        spanId: citationSpanId,
-        spanType: "citation_validation",
-        durationMs: Date.now() - citationSpanStart,
-        isError: !repaired,
+        text: finalText,
+        reason: `Removed unsupported citation(s): ${validation.unsupportedIds.join(", ")}`,
       };
     }
+
+    yield {
+      type: "span_end",
+      traceId,
+      spanId: citationSpanId,
+      spanType: "citation_validation",
+      durationMs: Date.now() - citationSpanStart,
+      isError: !repaired,
+    };
   }
 
+  // Only emit citations actually backed by a row seen this turn. This
+  // previously iterated every cited id, so an unsupported one surviving
+  // repair still reached the UI as a source chip.
   for (const rowId of validateCitations(finalText, seenRowIds).citedIds) {
+    if (!seenRowIds.has(rowId)) continue;
     const [source] = rowId.split("_");
     yield { type: "citation", traceId, rowId, source: source ?? "unknown" };
   }

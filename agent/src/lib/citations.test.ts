@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { extractCitations, extractRowIdsFromToolResult, validateCitations } from "./citations.js";
+import {
+  extractCitations,
+  extractRowIdsFromToolResult,
+  stripUnsupportedCitations,
+  validateCitations,
+} from "./citations.js";
 
 describe("extractCitations", () => {
   it("finds bracketed row_id citations", () => {
@@ -61,5 +66,71 @@ describe("validateCitations", () => {
     const result = validateCitations("[plaid_t1] is real, [plaid_fake] is not.", new Set(["plaid_t1"]));
     expect(result.valid).toBe(false);
     expect(result.unsupportedIds).toEqual(["plaid_fake"]);
+  });
+});
+
+describe("stripUnsupportedCitations", () => {
+  it("removes an unsupported citation but keeps the claim", () => {
+    const out = stripUnsupportedCitations("You spent $12 [plaid_fake].", new Set(["plaid_t1"]));
+    expect(out).toBe("You spent $12.");
+  });
+
+  it("keeps supported citations untouched", () => {
+    const text = "You spent $12 [plaid_t1] and $50 [plaid_t2].";
+    expect(stripUnsupportedCitations(text, new Set(["plaid_t1", "plaid_t2"]))).toBe(text);
+  });
+
+  it("strips only the unsupported subset", () => {
+    const out = stripUnsupportedCitations(
+      "Real [plaid_t1], fake [plaid_fake], real again [plaid_t2].",
+      new Set(["plaid_t1", "plaid_t2"])
+    );
+    expect(out).toBe("Real [plaid_t1], fake, real again [plaid_t2].");
+  });
+
+  it("is a no-op when there are no citations at all", () => {
+    expect(stripUnsupportedCitations("I don't have that data.", new Set())).toBe(
+      "I don't have that data."
+    );
+  });
+
+  it("leaves markdown links alone", () => {
+    const text = "See [the docs](https://example.com) for more.";
+    expect(stripUnsupportedCitations(text, new Set())).toBe(text);
+  });
+
+  /**
+   * F1 regression. The account balance answer below is entirely correct and
+   * came straight from a successful get_portfolio_snapshot call; its only
+   * defect is that the model cited an account_id rather than a row_id. The
+   * previous LLM-based repair, handed an empty allowed list, replaced the
+   * whole thing with "I don't have supporting records available to report
+   * your cash balance" — a false statement about data it had retrieved.
+   * Stripping must preserve every figure.
+   */
+  it("preserves a correct answer whose only fault is an invented citation", () => {
+    const answer = [
+      "**Cash: $100,000.00** — and no trades on record.",
+      "",
+      "Details from your latest Alpaca snapshot [bd132d5a-7d73-4878-b009-96d9d55c7afd]:",
+      "",
+      "- **Buying power:** $400,000.00 (4x margin on cash)",
+      "- **Status:** ACTIVE",
+    ].join("\n");
+
+    const out = stripUnsupportedCitations(answer, new Set());
+
+    expect(out).toContain("$100,000.00");
+    expect(out).toContain("$400,000.00");
+    expect(out).toContain("ACTIVE");
+    expect(out).not.toContain("bd132d5a");
+    expect(out).toContain("Details from your latest Alpaca snapshot:");
+  });
+
+  it("cannot shorten an answer by more than the citations it removed", () => {
+    const answer = "Cash is $100,000.00 [bogus_id] as of today.";
+    const out = stripUnsupportedCitations(answer, new Set());
+    expect(out.length).toBeGreaterThan(answer.length - " [bogus_id]".length - 1);
+    expect(out).toBe("Cash is $100,000.00 as of today.");
   });
 });

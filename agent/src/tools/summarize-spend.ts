@@ -57,11 +57,18 @@ export const summarizeSpendTool = betaZodTool({
       groupExpr = `CAST(date_trunc('${TRUNC_UNIT[args.group_by]}', event_timestamp) AS VARCHAR)`;
     }
 
+    // sample_row_ids: up to three of the rows actually behind each total, so
+    // an aggregate claim has something real to cite. Without these the model
+    // has no citable id for a summarize_spend answer, so any citation it
+    // makes is unsupported and gets stripped (F1). Left to itself the model
+    // worked around this by issuing a follow-up query_warehouse purely to
+    // fetch MIN(row_id) — cheaper to just return them here.
     const sql = `
       SELECT
         ${groupExpr} AS group_key,
         ${amountSelect} AS total_amount,
-        COUNT(*) AS transaction_count
+        COUNT(*) AS transaction_count,
+        list_slice(list(row_id ORDER BY event_timestamp DESC), 1, 3) AS sample_row_ids
       FROM main_analytics.fct_context_rows
       WHERE source = 'plaid'
         AND event_timestamp >= $1 AND event_timestamp < $2
@@ -88,6 +95,7 @@ export const summarizeSpendTool = betaZodTool({
           group: r["group_key"],
           total: Math.round(Number(r["total_amount"]) * 100) / 100,
           count: Number(r["transaction_count"]),
+          sample_row_ids: (r["sample_row_ids"] as unknown[] | null)?.map(String) ?? [],
         })),
       },
       null,

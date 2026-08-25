@@ -34,6 +34,7 @@ export const getPortfolioSnapshotTool = betaZodTool({
 
     const recentOrders = await queryRowsParams(
       `SELECT
+         row_id,
          CAST(raw_payload AS JSON)->>'$.symbol' AS symbol,
          CAST(raw_payload AS JSON)->>'$.side' AS side,
          CAST(raw_payload AS JSON)->>'$.quantity' AS quantity,
@@ -47,9 +48,19 @@ export const getPortfolioSnapshotTool = betaZodTool({
       []
     );
 
+    // dim_account_snapshot has no row_id of its own, so synthesize one that
+    // identifies this exact snapshot. Without it the model has nothing
+    // citable to attach a balance claim to, every citation it invents is
+    // unsupported, and the citation guard strips it — see F1 in the Phase 2
+    // findings. The `alpaca_` prefix is what extractRowIdsFromToolResult
+    // harvests, so this lands in seenRowIds like any real row.
+    const account = accountRows[0] as Record<string, unknown>;
+    const snapshotStamp = String(account["extracted_at"] ?? "").replace(/[^0-9]/g, "");
+    const accountRowId = `alpaca_account_${String(account["account_id"] ?? "unknown")}_${snapshotStamp}`;
+
     return JSON.stringify(
       {
-        account: accountRows[0],
+        account: { row_id: accountRowId, ...account },
         recent_orders: recentOrders,
         note:
           recentOrders.length === 0

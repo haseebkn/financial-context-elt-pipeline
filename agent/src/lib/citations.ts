@@ -38,3 +38,37 @@ export function validateCitations(answerText: string, seenRowIds: ReadonlySet<st
   const unsupportedIds = citedIds.filter((id) => !seenRowIds.has(id));
   return { valid: unsupportedIds.length === 0, citedIds, unsupportedIds };
 }
+
+/**
+ * Removes citation brackets whose row_id was not seen in this turn's tool
+ * results, leaving the surrounding prose intact.
+ *
+ * This replaces what used to be a second LLM call asked to "rewrite the
+ * answer to remove unsupported citations". That was actively harmful: given
+ * `Allowed row_ids: (none)` the repair model concluded nothing was
+ * supportable and rewrote a correct answer ("Cash: $100,000.00 ... status
+ * ACTIVE", straight from a successful tool call) into "I don't have
+ * supporting records available to report your cash balance" — turning a
+ * true statement into a false one, and on other runs deleting the exact
+ * figure the user had asked for.
+ *
+ * A bad citation means the attribution is wrong, not that the claim is.
+ * Stripping the bracket removes the false attribution and cannot delete
+ * content, is deterministic, and costs no tokens or latency.
+ */
+export function stripUnsupportedCitations(
+  answerText: string,
+  seenRowIds: ReadonlySet<string>
+): string {
+  // Fresh regex per call — a module-level /g pattern carries lastIndex state.
+  const pattern = /[ \t]*\[([a-zA-Z0-9_-]+)\](?!\()/g;
+  return (
+    answerText
+      .replace(pattern, (match, id: string) => (seenRowIds.has(id) ? match : ""))
+      // Tidy the punctuation the removed bracket leaves behind.
+      .replace(/[ \t]{2,}/g, " ")
+      .replace(/[ \t]+([.,;:!?])/g, "$1")
+      .replace(/\(\s*\)/g, "")
+      .replace(/[ \t]+$/gm, "")
+  );
+}
