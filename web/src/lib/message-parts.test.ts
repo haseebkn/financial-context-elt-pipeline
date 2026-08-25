@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseMessageParts, sourceFromRowId } from "./message-parts.js";
+import { parseMessageBlocks, parseMessageParts, sourceFromRowId } from "./message-parts.js";
 
 describe("parseMessageParts", () => {
   it("splits plain text with no citations into a single text part", () => {
@@ -35,6 +35,81 @@ describe("parseMessageParts", () => {
 
   it("returns an empty array for empty input", () => {
     expect(parseMessageParts("")).toEqual([]);
+  });
+});
+
+describe("parseMessageParts — markdown inline", () => {
+  it("parses bold as its own part instead of leaving literal asterisks", () => {
+    expect(parseMessageParts("Cash: **$100,000.00** today")).toEqual([
+      { type: "text", text: "Cash: " },
+      { type: "bold", text: "$100,000.00" },
+      { type: "text", text: " today" },
+    ]);
+  });
+
+  it("parses inline code", () => {
+    expect(parseMessageParts("run `npm test` now")).toEqual([
+      { type: "text", text: "run " },
+      { type: "code", text: "npm test" },
+      { type: "text", text: " now" },
+    ]);
+  });
+
+  it("keeps citations working alongside markdown", () => {
+    expect(parseMessageParts("**$4.33** at Starbucks [plaid_t1]")).toEqual([
+      { type: "bold", text: "$4.33" },
+      { type: "text", text: " at Starbucks " },
+      { type: "citation", rowId: "plaid_t1" },
+    ]);
+  });
+});
+
+describe("parseMessageBlocks", () => {
+  it("splits paragraphs on blank lines", () => {
+    const blocks = parseMessageBlocks("First para.\n\nSecond para.");
+    expect(blocks).toEqual([
+      { type: "paragraph", parts: [{ type: "text", text: "First para." }] },
+      { type: "paragraph", parts: [{ type: "text", text: "Second para." }] },
+    ]);
+  });
+
+  it("groups consecutive bullets into a single list", () => {
+    const blocks = parseMessageBlocks("- one\n- two\n- three");
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.type).toBe("list");
+    if (blocks[0]!.type === "list") expect(blocks[0]!.items).toHaveLength(3);
+  });
+
+  it("separates a lead-in line from the bullets that follow it", () => {
+    const blocks = parseMessageBlocks(
+      "The four charges:\n- 2026-06-11 [plaid_a]\n- 2026-05-12 [plaid_b]"
+    );
+    expect(blocks.map((b) => b.type)).toEqual(["paragraph", "list"]);
+    if (blocks[1]!.type === "list") expect(blocks[1]!.items).toHaveLength(2);
+  });
+
+  it("keeps citations inside list items", () => {
+    const blocks = parseMessageBlocks("- charge [plaid_a]");
+    const items = blocks[0]!.type === "list" ? blocks[0]!.items : [];
+    expect(items[0]).toContainEqual({ type: "citation", rowId: "plaid_a" });
+  });
+
+  it("renders bold inside a paragraph rather than as asterisks", () => {
+    const blocks = parseMessageBlocks("Cash is **$100,000.00**.");
+    if (blocks[0]!.type === "paragraph") {
+      expect(blocks[0]!.parts).toContainEqual({ type: "bold", text: "$100,000.00" });
+    }
+  });
+
+  it("produces no blocks for empty or whitespace-only text", () => {
+    expect(parseMessageBlocks("")).toEqual([]);
+    expect(parseMessageBlocks("   \n\n  ")).toEqual([]);
+  });
+
+  it("keeps a multi-line paragraph as one block", () => {
+    const blocks = parseMessageBlocks("line one\nline two");
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]!.type).toBe("paragraph");
   });
 });
 

@@ -155,8 +155,44 @@
   margin: 0;
   line-height: 1.55;
   font-size: 0.92rem;
-  white-space: pre-wrap;
   word-break: break-word;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* pre-wrap lives on the paragraph, not the container: block parsing already
+   turns blank lines into separate elements, so wrapping the whole thing
+   would render those breaks twice. Single newlines inside one paragraph
+   are still meaningful, hence pre-wrap here. */
+.message-text > p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.message-text strong {
+  font-weight: 600;
+  color: var(--text-strong, inherit);
+}
+
+.message-code {
+  font-family: var(--mono);
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  background: var(--surface-2, rgba(127, 127, 127, 0.16));
+}
+
+.message-list {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.message-list li {
+  padding-left: 0.15rem;
 }
 
 .message-text--pending {

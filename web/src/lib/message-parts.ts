@@ -8,20 +8,37 @@
  * the agent's validation logic.
  */
 
-const CITATION_PATTERN = /\[([a-zA-Z0-9_-]+)\](?!\()/g;
+/**
+ * One pass over the inline syntax the agent actually emits: **bold**, `code`,
+ * and [row_id] citations. The alternation keeps them mutually exclusive, so a
+ * citation inside bold is treated as whichever opens first rather than
+ * nesting — enough for the answers this renders, and far cheaper than
+ * pulling in a full markdown parser for three constructs.
+ */
+const INLINE_PATTERN = /\*\*([^*]+)\*\*|`([^`]+)`|\[([a-zA-Z0-9_-]+)\](?!\()/g;
 
-export type MessagePart = { type: "text"; text: string } | { type: "citation"; rowId: string };
+export type MessagePart =
+  | { type: "text"; text: string }
+  | { type: "citation"; rowId: string }
+  | { type: "bold"; text: string }
+  | { type: "code"; text: string };
+
+export type MessageBlock =
+  | { type: "paragraph"; parts: MessagePart[] }
+  | { type: "list"; items: MessagePart[][] };
 
 export function parseMessageParts(text: string): MessagePart[] {
   const parts: MessagePart[] = [];
   let lastIndex = 0;
 
-  for (const match of text.matchAll(CITATION_PATTERN)) {
+  for (const match of text.matchAll(INLINE_PATTERN)) {
     const index = match.index;
     if (index > lastIndex) {
       parts.push({ type: "text", text: text.slice(lastIndex, index) });
     }
-    parts.push({ type: "citation", rowId: match[1]! });
+    if (match[1] !== undefined) parts.push({ type: "bold", text: match[1] });
+    else if (match[2] !== undefined) parts.push({ type: "code", text: match[2] });
+    else if (match[3] !== undefined) parts.push({ type: "citation", rowId: match[3] });
     lastIndex = index + match[0].length;
   }
 
@@ -30,6 +47,49 @@ export function parseMessageParts(text: string): MessagePart[] {
   }
 
   return parts;
+}
+
+/**
+ * Groups answer text into paragraphs and bullet lists.
+ *
+ * The agent emits markdown freely — bold figures, "- " bullets, blank-line
+ * paragraph breaks — and this used to render inside a single <p>, so users
+ * saw literal asterisks and every bullet ran onto one line.
+ */
+export function parseMessageBlocks(text: string): MessageBlock[] {
+  const blocks: MessageBlock[] = [];
+  let paragraphLines: string[] = [];
+  let listItems: string[] = [];
+
+  const flushParagraph = () => {
+    const joined = paragraphLines.join("\n").trim();
+    if (joined) blocks.push({ type: "paragraph", parts: parseMessageParts(joined) });
+    paragraphLines = [];
+  };
+  const flushList = () => {
+    if (listItems.length > 0) {
+      blocks.push({ type: "list", items: listItems.map(parseMessageParts) });
+    }
+    listItems = [];
+  };
+
+  for (const line of text.split("\n")) {
+    const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
+    if (bullet) {
+      flushParagraph();
+      listItems.push(bullet[1]!);
+    } else if (line.trim() === "") {
+      flushList();
+      flushParagraph();
+    } else {
+      flushList();
+      paragraphLines.push(line);
+    }
+  }
+
+  flushList();
+  flushParagraph();
+  return blocks;
 }
 
 /** Maps a row_id's prefix (calendar_/plaid_/alpaca_) to its source label. */

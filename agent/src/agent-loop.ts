@@ -68,6 +68,7 @@ export async function* runAgentTurn(params: {
   });
 
   let finalText = "";
+  const textSegments: string[] = [];
   let finalStopReason = "end_turn";
   let iterationCount = 0;
   const startedAt = Date.now();
@@ -94,6 +95,16 @@ export async function* runAgentTurn(params: {
       stream.on("thinking", (delta) => events.push({ type: "thinking_delta", traceId, text: delta }));
 
       const finalMessage = await stream.finalMessage();
+
+      // Separate this iteration's prose from the previous one's. Without it
+      // the client concatenates every segment raw, producing run-ons like
+      // "…from your transaction data.Now the precise total…". The separator
+      // is streamed as a delta (rather than only inserted server-side) so a
+      // client accumulating text_delta events ends up with exactly the same
+      // string as finalText below.
+      if (textSegments.length > 0 && events.some((ev) => ev.type === "text_delta")) {
+        yield { type: "text_delta", traceId, text: "\n\n" };
+      }
       for (const ev of events) yield ev;
 
       const turnUsage = finalMessage.usage as RawUsage;
@@ -166,9 +177,15 @@ export async function* runAgentTurn(params: {
         openSpan = null;
       }
 
+      // Accumulate rather than overwrite. finalText used to hold only the
+      // last iteration's text, so it disagreed with the text the client had
+      // actually accumulated — citation validation saw only the final
+      // segment, and a text_correction replaced the user's whole message
+      // with just that segment, silently dropping earlier prose.
       const textBlocks = finalMessage.content.filter(isTextBlock);
       if (textBlocks.length > 0) {
-        finalText = textBlocks.map((b) => b.text).join("\n");
+        textSegments.push(textBlocks.map((b) => b.text).join("\n"));
+        finalText = textSegments.join("\n\n");
       }
 
       // Soft token budget: a manual accumulated-usage check, not the SDK's
