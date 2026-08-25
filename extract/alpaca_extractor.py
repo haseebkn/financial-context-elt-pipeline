@@ -1,11 +1,14 @@
 import os
+from collections.abc import Generator
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Generator, List
+from typing import Any
+
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import GetOrdersRequest
 from alpaca.trading.enums import QueryOrderStatus
-from extract.base_client import BaseAPIClient
+from alpaca.trading.requests import GetOrdersRequest
+
 from config.settings import settings
+from extract.base_client import BaseAPIClient
 
 
 class AlpacaExtractor(BaseAPIClient):
@@ -48,20 +51,20 @@ class AlpacaExtractor(BaseAPIClient):
             return obj.dict()
         return dict(obj)
 
-    def extract_account(self) -> Dict[str, Any]:
+    def extract_account(self) -> dict[str, Any]:
         """Fetches Alpaca Account details resiliently."""
         self.logger.info("Extracting Alpaca account details")
         # Wrapped in resilience framework
         account = self.execute_with_resilience(self.client.get_account)
         return self._serialize_pydantic(account)
 
-    def extract_positions(self) -> List[Dict[str, Any]]:
+    def extract_positions(self) -> list[dict[str, Any]]:
         """Fetches active positions resiliently."""
         self.logger.info("Extracting Alpaca active positions")
         positions = self.execute_with_resilience(self.client.get_all_positions)
         return [self._serialize_pydantic(p) for p in positions]
 
-    def extract_orders(self) -> Generator[List[Dict[str, Any]], None, None]:
+    def extract_orders(self) -> Generator[list[dict[str, Any]], None, None]:
         """
         Extracts orders page by page using a rolling created_at datetime cursor.
         Returns pages of orders to support high volume scaling without OOM errors.
@@ -119,7 +122,7 @@ class AlpacaExtractor(BaseAPIClient):
 
             after_cursor = new_cursor
 
-    def extract(self) -> Generator[Dict[str, Any], None, None]:
+    def extract(self) -> Generator[dict[str, Any], None, None]:
         """
         Extracts all financial datasets (account, positions, orders) from Alpaca.
         Yields structured payloads ready for landing zone file writer.
@@ -143,7 +146,7 @@ class AlpacaExtractor(BaseAPIClient):
         # 3. Orders (yields per page)
         try:
             has_orders = False
-            for page_index, orders_page in enumerate(self.extract_orders()):
+            for orders_page in self.extract_orders():
                 has_orders = True
                 yield {"resource": "orders", "data": orders_page}
             if not has_orders:

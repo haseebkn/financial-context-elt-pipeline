@@ -1,0 +1,33 @@
+# Explicit lint configuration.
+#
+# The rule set is pinned here rather than inherited from ruff's defaults:
+# ruff 0.16 added the pyupgrade (UP) rules to its default selection, which
+# broke CI with no code change on our side. Naming the rules explicitly
+# means a ruff upgrade can add capabilities without silently changing what
+# this repo enforces.
+
+target-version = "py310"
+
+[lint]
+select = [
+    "E4",  # pycodestyle — imports
+    "E7",  # pycodestyle — statements
+    "E9",  # pycodestyle — runtime errors
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+]
+
+[lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom is a function call in an argument
+# default (`state: ServiceState = Depends(require_ready)`). That is the
+# documented, correct way to declare a dependency — B008 flags it as a
+# mutable-default bug, which it isn't. Same for Query/Header/Path defaults.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+]

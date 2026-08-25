@@ -14,7 +14,6 @@ from botocore.exceptions import ClientError
 import load.file_writer as file_writer_module
 from load.file_writer import DateTimeEncoder, RawFileWriter
 
-
 # ---------------------------------------------------------------------------
 # DateTimeEncoder
 # ---------------------------------------------------------------------------

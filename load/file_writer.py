@@ -1,10 +1,11 @@
-import os
 import json
+import os
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
-import structlog
+from typing import Any
+
 import boto3
+import structlog
 from botocore.exceptions import ClientError
 
 from config.settings import settings
@@ -99,7 +100,7 @@ class RawFileWriter:
         source: str,
         resource: str,
         payload: Any,
-        partition_date: Optional[str] = None,
+        partition_date: str | None = None,
     ) -> str:
         """
         Wraps the raw payload in a metadata envelope and writes it to a partitioned directory.
@@ -114,7 +115,7 @@ class RawFileWriter:
             partition_date = now.strftime("%Y-%m-%d")
 
         # Metadata Envelope configuration
-        envelope: Dict[str, Any] = {
+        envelope: dict[str, Any] = {
             "metadata": {
                 "extracted_at": now.isoformat(),
                 "source": source,

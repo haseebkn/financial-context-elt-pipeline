@@ -18,7 +18,7 @@ app.
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import structlog
 import torch
@@ -43,10 +43,10 @@ class ServiceState:
     """Holds the loaded model/collection, or the reason they failed to load."""
 
     def __init__(self) -> None:
-        self.model: Optional[SentenceTransformer] = None
+        self.model: SentenceTransformer | None = None
         self.collection: Any = None
         self.device_name: str = "unknown"
-        self.error: Optional[str] = None
+        self.error: str | None = None
 
     @property
     def ready(self) -> bool:
@@ -83,7 +83,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Context Retrieval Service", lifespan=lifespan)
 
 
-def require_auth(x_internal_token: Optional[str] = Header(None)) -> None:
+def require_auth(x_internal_token: str | None = Header(None)) -> None:
     if not settings.retrieval_service_token:
         raise HTTPException(
             status_code=503,
@@ -135,8 +135,8 @@ def get_stats(
 
 
 def _build_where(
-    source: Optional[str], after: Optional[str], before: Optional[str]
-) -> Optional[dict]:
+    source: str | None, after: str | None, before: str | None
+) -> dict | None:
     """
     Builds a Chroma `where` filter from optional source/date-range params.
     record_date is stored as a string cast of a TIMESTAMP (YYYY-MM-DD HH:MM:SS),
@@ -161,14 +161,14 @@ def _build_where(
 def search(
     q: str = Query(..., min_length=1, description="Natural-language semantic query."),
     limit: int = Query(5, ge=1, le=MAX_LIMIT),
-    source: Optional[str] = Query(
+    source: str | None = Query(
         None, description="Filter to one source: calendar | plaid | alpaca."
     ),
-    after: Optional[str] = Query(
+    after: str | None = Query(
         None,
         description="Only rows with record_date >= this value (YYYY-MM-DD[ HH:MM:SS]).",
     ),
-    before: Optional[str] = Query(
+    before: str | None = Query(
         None,
         description="Only rows with record_date <= this value (YYYY-MM-DD[ HH:MM:SS]).",
     ),

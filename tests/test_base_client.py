@@ -15,7 +15,6 @@ from plaid.exceptions import ApiException as PlaidApiException
 
 from extract.base_client import is_retryable_exception
 
-
 # ---------------------------------------------------------------------------
 # 1. requests.exceptions.RequestException
 # ---------------------------------------------------------------------------

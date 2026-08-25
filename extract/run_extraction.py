@@ -1,16 +1,17 @@
 import os
 import sys
+
 import structlog
 from dotenv import load_dotenv
 
 # Add workspace root to path to ensure imports work correctly when executing from anywhere
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from extract.google_calendar_extractor import GoogleCalendarExtractor
+from config.settings import settings
 from extract.alpaca_extractor import AlpacaExtractor
+from extract.google_calendar_extractor import GoogleCalendarExtractor
 from extract.plaid_extractor import PlaidExtractor
 from load.file_writer import RawFileWriter
-from config.settings import settings
 
 logger = structlog.get_logger("run_extraction")
 
@@ -29,7 +30,7 @@ def main():
         try:
             logger.info("Starting Google Calendar Extraction Phase...")
             calendar_extractor = GoogleCalendarExtractor()
-            for idx, response_page in enumerate(calendar_extractor.extract()):
+            for response_page in calendar_extractor.extract():
                 writer.write_record(
                     source="google_calendar", resource="events", payload=response_page
                 )

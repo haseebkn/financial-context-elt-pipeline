@@ -1,12 +1,15 @@
 import os
-from typing import Any, Dict, Generator
+from collections.abc import Generator
+from typing import Any
+
 import plaid
 from plaid.api import plaid_api
-from plaid.model.accounts_get_request import AccountsGetRequest
 from plaid.model.accounts_balance_get_request import AccountsBalanceGetRequest
+from plaid.model.accounts_get_request import AccountsGetRequest
 from plaid.model.transactions_sync_request import TransactionsSyncRequest
-from extract.base_client import BaseAPIClient
+
 from config.settings import settings
+from extract.base_client import BaseAPIClient
 
 
 class PlaidExtractor(BaseAPIClient):
@@ -70,7 +73,7 @@ class PlaidExtractor(BaseAPIClient):
             return response.to_dict()
         return response
 
-    def extract_accounts(self) -> Dict[str, Any]:
+    def extract_accounts(self) -> dict[str, Any]:
         """Fetches list of accounts linked to the access token."""
         self.logger.info("Extracting Plaid accounts details")
         request = AccountsGetRequest(access_token=self.access_token)
@@ -79,7 +82,7 @@ class PlaidExtractor(BaseAPIClient):
         response = self.execute_with_resilience(self.client.accounts_get, request)
         return self._serialize_response(response)
 
-    def extract_balances(self) -> Dict[str, Any]:
+    def extract_balances(self) -> dict[str, Any]:
         """Fetches real-time account balances."""
         self.logger.info("Extracting Plaid balances details")
         request = AccountsBalanceGetRequest(access_token=self.access_token)
@@ -91,7 +94,7 @@ class PlaidExtractor(BaseAPIClient):
 
     def extract_transactions(
         self, initial_cursor: str = ""
-    ) -> Generator[Dict[str, Any], None, None]:
+    ) -> Generator[dict[str, Any], None, None]:
         """
         Syncs transactions using Plaid's /transactions/sync endpoint.
         Paginates using the next_cursor until has_more is False.
@@ -137,7 +140,7 @@ class PlaidExtractor(BaseAPIClient):
                 self.logger.info("Plaid transaction sync complete (has_more=False)")
                 break
 
-    def extract(self) -> Generator[Dict[str, Any], None, None]:
+    def extract(self) -> Generator[dict[str, Any], None, None]:
         """
         Extracts accounts, balances, and syncs transactions.
         Yields structured payloads ready for landing zone file writer.

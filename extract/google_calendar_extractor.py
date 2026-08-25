@@ -1,12 +1,15 @@
 import os
+from collections.abc import Generator
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Generator
+from typing import Any
+
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
-from extract.base_client import BaseAPIClient
+
 from config.settings import settings
+from extract.base_client import BaseAPIClient
 
 
 class GoogleCalendarExtractor(BaseAPIClient):
@@ -75,7 +78,7 @@ class GoogleCalendarExtractor(BaseAPIClient):
         # Build Google Calendar API service using base client resilience
         self.service = build("calendar", "v3", credentials=creds)
 
-    def extract(self) -> Generator[Dict[str, Any], None, None]:
+    def extract(self) -> Generator[dict[str, Any], None, None]:
         """
         Extracts calendar events page by page using cursor-based token pagination.
         Yields structured payloads ready for landing zone file writer.

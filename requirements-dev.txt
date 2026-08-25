@@ -1,7 +1,14 @@
 -r requirements.txt
 
-pytest>=8.0.0
-ruff>=0.6.0
-mypy>=1.11.0
-types-PyYAML
-httpx>=0.27.0  # required by fastapi.testclient.TestClient
+# Dev/CI toolchain — pinned deliberately.
+#
+# These were previously floating (`ruff>=0.6.0`, and CI installed them
+# unpinned entirely). Ruff 0.16 then added the pyupgrade rules to its
+# default selection and broke the build with no code change on our side.
+# A linter that can fail CI on its own release schedule isn't a gate you
+# can trust, so the versions are pinned and bumped intentionally.
+pytest==9.1.1
+ruff==0.16.4
+mypy==2.3.1
+types-PyYAML==6.0.12.20250915
+httpx==0.28.1  # required by fastapi.testclient.TestClient

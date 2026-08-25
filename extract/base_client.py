@@ -1,19 +1,21 @@
-import sys
 import logging
+import sys
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Generator
-import yaml
+from collections.abc import Generator
+from typing import Any
+
+import requests
 import structlog
+import yaml
 from dotenv import load_dotenv
 from tenacity import (
+    before_sleep_log,
     retry,
+    retry_if_exception,
     stop_after_attempt,
     wait_exponential,
     wait_random,
-    retry_if_exception,
-    before_sleep_log,
 )
-import requests
 
 from config.settings import settings
 
@@ -106,13 +108,10 @@ def is_retryable_exception(exception: BaseException) -> bool:
         pass
 
     # Fallback check on standard timeout errors
-    if (
+    return (
         "timeout" in str(exception).lower()
         or "connection pool" in str(exception).lower()
-    ):
-        return True
-
-    return False
+    )
 
 
 # Base retry configuration: Exponential Backoff + Jitter
@@ -138,10 +137,10 @@ class BaseAPIClient(ABC):
         self.config = self._load_config(config_path)
         self.raw_data_dir = settings.raw_data_dir
 
-    def _load_config(self, config_path: str) -> Dict[str, Any]:
+    def _load_config(self, config_path: str) -> dict[str, Any]:
         """Loads yaml configuration safely."""
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 return yaml.safe_load(f)
         except Exception as e:
             logger.error(
@@ -150,7 +149,7 @@ class BaseAPIClient(ABC):
             return {}
 
     @abstractmethod
-    def extract(self) -> Generator[Dict[str, Any], None, None]:
+    def extract(self) -> Generator[dict[str, Any], None, None]:
         """
         Abstract method to be implemented by each API extractor.
         Must yield dictionaries of extracted payloads (containing data and extraction metadata).
