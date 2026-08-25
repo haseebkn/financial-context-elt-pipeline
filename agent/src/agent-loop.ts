@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { env } from "./config.js";
 import { tools } from "./tools/index.js";
 import { SYSTEM_PROMPT } from "./lib/system-prompt.js";
+import { buildRequestContext } from "./lib/request-context.js";
 import {
   extractRowIdsFromToolResult,
   stripUnsupportedCitations,
@@ -51,6 +52,7 @@ export async function* runAgentTurn(params: {
   history: BetaMessageParam[];
   userMessage: string;
   traceId?: string;
+  now?: Date;
 }): AsyncGenerator<AgentStreamEvent> {
   const traceId = params.traceId ?? randomUUID();
   const seenRowIds = new Set<string>();
@@ -60,7 +62,13 @@ export async function* runAgentTurn(params: {
   const runner = client.beta.messages.toolRunner({
     model: env.AGENT_MODEL,
     max_tokens: MAX_TOKENS,
-    system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+    system: [
+      { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+      {
+        type: "text",
+        text: buildRequestContext(params.now ?? new Date(), env.USER_TIME_ZONE),
+      },
+    ],
     tools: [...tools],
     messages: [...params.history, { role: "user", content: params.userMessage }],
     max_iterations: env.MAX_TOOL_ITERATIONS,

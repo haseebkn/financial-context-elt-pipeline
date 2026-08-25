@@ -10,6 +10,23 @@ const EnvSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1, "ANTHROPIC_API_KEY is required to run the agent loop"),
   AGENT_MODEL: z.string().default("claude-opus-5"),
 
+  // The single user's local zone, used to resolve "today", "last month",
+  // and similar relative dates in each request.
+  USER_TIME_ZONE: z
+    .string()
+    .default("America/St_Johns")
+    .refine(
+      (zone) => {
+        try {
+          new Intl.DateTimeFormat("en-US", { timeZone: zone }).format();
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { message: "USER_TIME_ZONE must be a valid IANA time zone" }
+    ),
+
   // Path to the DuckDB warehouse file, relative to the repo root.
   DUCKDB_PATH: z.string().default("../financial_engine.db"),
 
