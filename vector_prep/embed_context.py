@@ -3,10 +3,11 @@ import hashlib
 import os
 import sys
 import time
+
 import duckdb
+import structlog
 import torch
 from sentence_transformers import SentenceTransformer
-import structlog
 from vector_client import LocalVectorClient
 
 # Set up structured logging
@@ -16,6 +17,7 @@ DB_PATH = "financial_engine.db"
 COLLECTION_NAME = "financial_communication_context"
 MODEL_NAME = "all-MiniLM-L6-v2"
 BATCH_SIZE = 100
+
 
 def check_hardware(requested_device: str = "auto") -> str:
     """
@@ -31,30 +33,46 @@ def check_hardware(requested_device: str = "auto") -> str:
 
     if torch.cuda.is_available():
         device_name = torch.cuda.get_device_name(0)
-        logger.info("Hardware acceleration verified",
-                    device="cuda:0",
-                    device_name=device_name,
-                    rtx_4070_detected="4070" in device_name)
+        logger.info(
+            "Hardware acceleration verified",
+            device="cuda:0",
+            device_name=device_name,
+            rtx_4070_detected="4070" in device_name,
+        )
         return "cuda"
 
     if requested_device == "cuda":
-        raise RuntimeError("CUDA was explicitly requested but is not available on this system.")
+        raise RuntimeError(
+            "CUDA was explicitly requested but is not available on this system."
+        )
 
-    logger.warning("CUDA is not available; falling back to CPU. Embedding will be slower.")
+    logger.warning(
+        "CUDA is not available; falling back to CPU. Embedding will be slower."
+    )
     return "cpu"
+
 
 def load_embedding_model(device: str):
     """
     Initializes the embedding transformer model on the target device.
     """
-    logger.info("Loading sentence-transformer model", model_name=MODEL_NAME, target_device=device)
+    logger.info(
+        "Loading sentence-transformer model",
+        model_name=MODEL_NAME,
+        target_device=device,
+    )
     try:
         model = SentenceTransformer(MODEL_NAME, device=device)
-        logger.info("Model successfully loaded onto device", model_name=MODEL_NAME, device=device)
+        logger.info(
+            "Model successfully loaded onto device",
+            model_name=MODEL_NAME,
+            device=device,
+        )
         return model
     except Exception as e:
         logger.error("Failed to load embedding model", error=str(e))
         raise
+
 
 def fetch_analytics_data(db_path: str):
     """
@@ -64,7 +82,7 @@ def fetch_analytics_data(db_path: str):
     if not os.path.exists(db_path):
         logger.error("DuckDB database file not found", db_path=db_path)
         raise FileNotFoundError(f"Database not found at: {db_path}")
-        
+
     try:
         conn = duckdb.connect(db_path, read_only=True)
         # Select rows where summary_text is not null and not empty
@@ -85,9 +103,11 @@ def fetch_analytics_data(db_path: str):
         logger.error("Failed to query DuckDB analytical warehouse", error=str(e))
         raise
 
+
 def content_hash(text: str) -> str:
     """Stable content fingerprint used to detect unchanged rows between runs."""
     return hashlib.md5(text.encode("utf-8")).hexdigest()
+
 
 def filter_changed_rows(df, collection):
     """
@@ -108,7 +128,10 @@ def filter_changed_rows(df, collection):
     existing = collection.get(ids=ids, include=["metadatas"])
     existing_hashes = {
         eid: (meta or {}).get("content_hash")
-        for eid, meta in zip(existing["ids"], existing["metadatas"])
+        # strict=True: these are parallel arrays from one Chroma get(); if they
+        # ever disagree in length, silent truncation here would mark records
+        # unchanged and leave their embeddings stale rather than re-embedding.
+        for eid, meta in zip(existing["ids"], existing["metadatas"], strict=True)
     }
 
     changed_mask = df.apply(
@@ -123,6 +146,7 @@ def filter_changed_rows(df, collection):
     }
     return filtered, stats
 
+
 def vectorize_and_store(df, model, collection):
     """
     Processes the dataframe in batches, computes embeddings, and stores them in ChromaDB.
@@ -134,54 +158,68 @@ def vectorize_and_store(df, model, collection):
         logger.info("No new or changed records to vectorize.")
         return
 
-    logger.info("Beginning vector prep and storage process", total_records=total_rows, batch_size=BATCH_SIZE)
-    
+    logger.info(
+        "Beginning vector prep and storage process",
+        total_records=total_rows,
+        batch_size=BATCH_SIZE,
+    )
+
     for start_idx in range(0, total_rows, BATCH_SIZE):
         end_idx = min(start_idx + BATCH_SIZE, total_rows)
         batch_df = df.iloc[start_idx:end_idx]
-        
+
         # Prepare batches
-        ids = batch_df['unique_id'].tolist()
-        documents = batch_df['context_string'].tolist()
-        
+        ids = batch_df["unique_id"].tolist()
+        documents = batch_df["context_string"].tolist()
+
         # Prepare metadatas (each entry must be a dictionary)
         metadatas = []
         for _, row in batch_df.iterrows():
-            metadatas.append({
-                "source_system": str(row['source_system']),
-                "record_date": str(row['record_date']),
-                "content_hash": str(row['content_hash'])
-            })
-            
-        logger.info("Embedding batch...", 
-                    batch_start=start_idx, 
-                    batch_end=end_idx, 
-                    batch_count=len(documents))
-        
+            metadatas.append(
+                {
+                    "source_system": str(row["source_system"]),
+                    "record_date": str(row["record_date"]),
+                    "content_hash": str(row["content_hash"]),
+                }
+            )
+
+        logger.info(
+            "Embedding batch...",
+            batch_start=start_idx,
+            batch_end=end_idx,
+            batch_count=len(documents),
+        )
+
         try:
             # Normalize to unit vectors so cosine distance (and the app's
             # similarity display) is well-defined and consistent across queries.
-            embeddings = model.encode(documents, show_progress_bar=False, normalize_embeddings=True).tolist()
-            
+            embeddings = model.encode(
+                documents, show_progress_bar=False, normalize_embeddings=True
+            ).tolist()
+
             # Upsert into ChromaDB to ensure idempotency (updates existing ids in-place)
             collection.upsert(
-                ids=ids,
-                embeddings=embeddings,
-                metadatas=metadatas,
-                documents=documents
+                ids=ids, embeddings=embeddings, metadatas=metadatas, documents=documents
             )
-            logger.info("Batch successfully upserted to ChromaDB", 
-                        batch_start=start_idx, 
-                        batch_end=end_idx)
+            logger.info(
+                "Batch successfully upserted to ChromaDB",
+                batch_start=start_idx,
+                batch_end=end_idx,
+            )
         except Exception as e:
-            logger.error("Failed storing batch in ChromaDB", 
-                         batch_start=start_idx, 
-                         batch_end=end_idx, 
-                         error=str(e))
+            logger.error(
+                "Failed storing batch in ChromaDB",
+                batch_start=start_idx,
+                batch_end=end_idx,
+                error=str(e),
+            )
             raise
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Compute embeddings and load them into ChromaDB.")
+    parser = argparse.ArgumentParser(
+        description="Compute embeddings and load them into ChromaDB."
+    )
     parser.add_argument(
         "--device",
         choices=["auto", "cuda", "cpu"],
@@ -192,8 +230,8 @@ def main():
         "--recreate",
         action="store_true",
         help="Drop and recreate the ChromaDB collection before embedding. "
-             "Required once when switching distance metrics or models, since "
-             "vectors embedded under a different configuration are not comparable.",
+        "Required once when switching distance metrics or models, since "
+        "vectors embedded under a different configuration are not comparable.",
     )
     args = parser.parse_args()
 
@@ -203,11 +241,13 @@ def main():
 
         # 2. Initialize ChromaDB client and collection
         vector_client = LocalVectorClient()
-        collection = vector_client.get_or_create_collection(COLLECTION_NAME, recreate=args.recreate)
-        
+        collection = vector_client.get_or_create_collection(
+            COLLECTION_NAME, recreate=args.recreate
+        )
+
         # 3. Load Sentence Transformer Model on GPU
         model = load_embedding_model(device)
-        
+
         # 4. Fetch clean data from DuckDB
         df = fetch_analytics_data(DB_PATH)
 
@@ -231,10 +271,11 @@ def main():
             rows_skipped_unchanged=change_stats["skipped"],
             embed_seconds=round(elapsed, 2),
         )
-        
+
     except Exception as e:
         logger.critical("Vectorization pipeline failed", error=str(e))
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

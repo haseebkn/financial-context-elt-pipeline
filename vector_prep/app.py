@@ -4,8 +4,8 @@ import sys
 # Ensure vector_prep directory is in python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-import torch
 import structlog
+import torch
 from fastapi import FastAPI, Query
 from sentence_transformers import SentenceTransformer
 from vector_client import LocalVectorClient
@@ -27,6 +27,7 @@ model = SentenceTransformer(MODEL_NAME, device=device)
 vector_client = LocalVectorClient()
 collection = vector_client.get_or_create_collection(COLLECTION_NAME)
 
+
 @app.get("/api/stats")
 def get_stats():
     """Returns basic index database stats."""
@@ -35,36 +36,38 @@ def get_stats():
         "device": device_name,
         "model": MODEL_NAME,
         "collection": COLLECTION_NAME,
-        "metric": "Cosine Similarity"
+        "metric": "Cosine Similarity",
     }
+
 
 @app.get("/api/search")
 def search(q: str = Query(..., min_length=1), limit: int = 5):
     """Executes semantic vector search using GPU embeddings."""
     logger.info("Received query", query=q, limit=limit)
     try:
-        # Generate query vector on GPU
-        query_vector = model.encode([q], normalize_embeddings=True).tolist()
-        
+        # Generate query vector on GPU.
+        # encode()'s stub return type is a broad union including list[Tensor],
+        # which lacks .tolist() — with default params (no convert_to_tensor) it
+        # always returns an ndarray at runtime, which does have it.
+        query_vector = model.encode([q], normalize_embeddings=True).tolist()  # type: ignore[union-attr]
+
         # Query ChromaDB
-        results = collection.query(
-            query_embeddings=query_vector,
-            n_results=limit
-        )
-        
+        results = collection.query(query_embeddings=query_vector, n_results=limit)
+
         # Format response
         formatted_results = []
-        if results['ids'] and results['ids'][0]:
-            for i in range(len(results['ids'][0])):
-                formatted_results.append({
-                    "id": results['ids'][0][i],
-                    "document": results['documents'][0][i],
-                    "distance": float(results['distances'][0][i]),
-                    "metadata": results['metadatas'][0][i]
-                })
-        
+        if results["ids"] and results["ids"][0]:
+            for i in range(len(results["ids"][0])):
+                formatted_results.append(
+                    {
+                        "id": results["ids"][0][i],
+                        "document": results["documents"][0][i],
+                        "distance": float(results["distances"][0][i]),
+                        "metadata": results["metadatas"][0][i],
+                    }
+                )
+
         return {"query": q, "results": formatted_results}
     except Exception as e:
         logger.error("Search failed", error=str(e))
         return {"error": str(e), "results": []}
-

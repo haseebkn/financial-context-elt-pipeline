@@ -42,13 +42,13 @@ jobs:
           pip install -r /tmp/ci-requirements.txt -r /tmp/ci-requirements-dev.txt
 
       - name: Ruff (lint)
-        run: ruff check extract/ load/ config/ tests/ vector_prep/retrieval_service.py
+        run: ruff check extract/ load/ config/ tests/ vector_prep/
 
       - name: Ruff (format check)
-        run: ruff format --check extract/ load/ config/ tests/ vector_prep/retrieval_service.py
+        run: ruff format --check extract/ load/ config/ tests/ vector_prep/
 
       - name: mypy
-        run: python -m mypy extract/ load/ config/ vector_prep/retrieval_service.py
+        run: python -m mypy extract/ load/ config/ vector_prep/
 
       - name: pytest
         run: python -m pytest tests/ -v
