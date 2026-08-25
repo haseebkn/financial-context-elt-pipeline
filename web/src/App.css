@@ -195,6 +195,37 @@
   padding-left: 0.15rem;
 }
 
+.message-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.message-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.message-table th,
+.message-table td {
+  padding: 0.4rem 0.55rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.message-table th {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.message-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
 .message-text--pending {
   color: var(--text-muted);
   display: flex;

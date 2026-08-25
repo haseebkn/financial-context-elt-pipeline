@@ -25,7 +25,8 @@ export type MessagePart =
 
 export type MessageBlock =
   | { type: "paragraph"; parts: MessagePart[] }
-  | { type: "list"; items: MessagePart[][] };
+  | { type: "list"; items: MessagePart[][] }
+  | { type: "table"; headers: MessagePart[][]; rows: MessagePart[][][] };
 
 export function parseMessageParts(text: string): MessagePart[] {
   const parts: MessagePart[] = [];
@@ -61,6 +62,22 @@ export function parseMessageBlocks(text: string): MessageBlock[] {
   let paragraphLines: string[] = [];
   let listItems: string[] = [];
 
+  const splitTableRow = (line: string): string[] =>
+    line
+      .trim()
+      .replace(/^\|/, "")
+      .replace(/\|$/, "")
+      .split("|")
+      .map((cell) => cell.trim());
+
+  const isTableSeparator = (line: string, columnCount: number): boolean => {
+    const cells = splitTableRow(line);
+    return (
+      cells.length === columnCount &&
+      cells.every((cell) => /^:?-{3,}:?$/.test(cell))
+    );
+  };
+
   const flushParagraph = () => {
     const joined = paragraphLines.join("\n").trim();
     if (joined) blocks.push({ type: "paragraph", parts: parseMessageParts(joined) });
@@ -73,7 +90,38 @@ export function parseMessageBlocks(text: string): MessageBlock[] {
     listItems = [];
   };
 
-  for (const line of text.split("\n")) {
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const headerCells = line.includes("|") ? splitTableRow(line) : [];
+    if (
+      headerCells.length > 1 &&
+      i + 1 < lines.length &&
+      isTableSeparator(lines[i + 1]!, headerCells.length)
+    ) {
+      flushList();
+      flushParagraph();
+
+      const rows: MessagePart[][][] = [];
+      i += 2; // Skip the alignment row and advance to the first body row.
+      while (i < lines.length) {
+        const rowLine = lines[i]!;
+        if (!rowLine.trim() || !rowLine.includes("|")) break;
+        const cells = splitTableRow(rowLine);
+        if (cells.length !== headerCells.length) break;
+        rows.push(cells.map(parseMessageParts));
+        i++;
+      }
+
+      blocks.push({
+        type: "table",
+        headers: headerCells.map(parseMessageParts),
+        rows,
+      });
+      i--; // Let the outer loop process the first non-table line.
+      continue;
+    }
+
     const bullet = /^\s*[-*]\s+(.*)$/.exec(line);
     if (bullet) {
       flushParagraph();

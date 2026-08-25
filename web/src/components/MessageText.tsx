@@ -43,6 +43,31 @@ export function MessageText({ text }: { text: string }) {
               </li>
             ))}
           </ul>
+        ) : block.type === "table" ? (
+          <div key={i} className="message-table-scroll">
+            <table className="message-table">
+              <thead>
+                <tr>
+                  {block.headers.map((parts, j) => (
+                    <th key={j} scope="col">
+                      <Inline parts={parts} />
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {block.rows.map((row, j) => (
+                  <tr key={j}>
+                    {row.map((parts, k) => (
+                      <td key={k}>
+                        <Inline parts={parts} />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ) : (
           <p key={i}>
             <Inline parts={block.parts} />

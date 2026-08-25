@@ -111,6 +111,39 @@ describe("parseMessageBlocks", () => {
     expect(blocks).toHaveLength(1);
     expect(blocks[0]!.type).toBe("paragraph");
   });
+
+  it("parses the markdown table emitted by a live aggregation turn", () => {
+    const blocks = parseMessageBlocks(
+      [
+        "Spending by category:",
+        "",
+        "| Category | Total | Txns |",
+        "|---|---:|---:|",
+        "| Food and Drink | **$4,422.92** | 20 |",
+        "| Recreation | $314.00 | 4 |",
+      ].join("\n")
+    );
+
+    expect(blocks.map((block) => block.type)).toEqual(["paragraph", "table"]);
+    const table = blocks[1]!;
+    expect(table.type).toBe("table");
+    if (table.type === "table") {
+      expect(table.headers).toHaveLength(3);
+      expect(table.rows).toHaveLength(2);
+      expect(table.rows[0]![1]).toContainEqual({ type: "bold", text: "$4,422.92" });
+    }
+  });
+
+  it("keeps citation chips inside table cells", () => {
+    const blocks = parseMessageBlocks(
+      "| Merchant | Amount |\n|---|---:|\n| Starbucks [plaid_a] | $4.33 |"
+    );
+    const table = blocks[0]!;
+    expect(table.type).toBe("table");
+    if (table.type === "table") {
+      expect(table.rows[0]![0]).toContainEqual({ type: "citation", rowId: "plaid_a" });
+    }
+  });
 });
 
 describe("sourceFromRowId", () => {
