@@ -29,11 +29,17 @@ jobs:
         # vector_prep.retrieval_service, which imports both at module level
         # even though it only loads the real model inside its lifespan
         # handler, so they can't be skipped without breaking test collection.
+        #
+        # Tool versions come from requirements-dev.txt rather than a bare
+        # `pip install ruff mypy` — unpinned linters mean a tool release can
+        # fail the build with no change on our side, which is exactly how
+        # ruff 0.16 first broke this workflow.
         run: |
           python -m pip install --upgrade pip
           grep -v -E '^(torch|torchvision)' requirements.txt > /tmp/ci-requirements.txt
+          grep -v -E '^-r requirements.txt' requirements-dev.txt > /tmp/ci-requirements-dev.txt
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install -r /tmp/ci-requirements.txt pytest ruff mypy types-PyYAML
+          pip install -r /tmp/ci-requirements.txt -r /tmp/ci-requirements-dev.txt
 
       - name: Ruff (lint)
         run: ruff check extract/ load/ config/ tests/ vector_prep/retrieval_service.py
@@ -100,18 +106,41 @@ jobs:
         run: npm run build
 
   dag-integrity:
-    name: Airflow DAG integrity (astro dev parse)
+    name: Airflow DAG integrity (DagBag import check)
     runs-on: ubuntu-latest
+
+    # Was `astro dev parse`, which builds the Astro image and runs a
+    # container to import the DAGs. That pulled the Astro CLI unpinned, and
+    # a newer CLI against the pinned astro-runtime:11.3.0 image failed with
+    # "unable to find user airflow" before it ever reached the DAGs.
+    #
+    # The DAGs only import core Airflow at module level (boto3 and
+    # airflow.models.Variable are imported inside task functions), so a
+    # plain DagBag import check validates exactly the same thing without
+    # Docker — faster, and with no CLI/image version coupling. The test
+    # itself is the one Astro scaffolds at orchestration/tests/dags/.
+    env:
+      AIRFLOW_HOME: ${{ github.workspace }}/orchestration
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Astro CLI
-        run: curl -sSL install.astronomer.io | sudo bash -s
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-      - name: Parse DAGs
+      - name: Install Airflow
+        # Pinned to the Airflow version behind astro-runtime 11.3.0, with
+        # Airflow's own constraints file — an unconstrained Airflow install
+        # resolves incompatible transitive deps.
+        run: |
+          pip install "apache-airflow==2.9.3" pytest \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.11.txt"
+
+      - name: DAG integrity tests
         working-directory: orchestration
-        run: astro dev parse
+        run: python -m pytest tests/dags -v
 
   terraform:
     name: Terraform validate (infra/aws)
