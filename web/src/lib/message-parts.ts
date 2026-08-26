@@ -150,6 +150,8 @@ export function sourceFromRowId(rowId: string): string {
       return "Plaid";
     case "alpaca":
       return "Alpaca";
+    case "computed":
+      return "Computed";
     default:
       return "Unknown";
   }

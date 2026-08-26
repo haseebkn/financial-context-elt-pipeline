@@ -1,6 +1,7 @@
 import { z } from "zod/v4";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { queryRowsParams } from "../lib/duckdb.js";
+import { createResultId } from "../lib/result-id.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -85,19 +86,21 @@ export const summarizeSpendTool = betaZodTool({
 
     const grandTotal = rows.reduce((sum, r) => sum + Number(r["total_amount"]), 0);
 
-    return JSON.stringify(
-      {
-        range: { start: args.start, end: args.end },
-        transaction_type: args.transaction_type,
-        grouped_by: args.group_by,
-        grand_total: Math.round(grandTotal * 100) / 100,
-        breakdown: rows.map((r) => ({
+    const payload = {
+      range: { start: args.start, end: args.end },
+      transaction_type: args.transaction_type,
+      grouped_by: args.group_by,
+      grand_total: Math.round(grandTotal * 100) / 100,
+      breakdown: rows.map((r) => ({
           group: r["group_key"],
           total: Math.round(Number(r["total_amount"]) * 100) / 100,
           count: Number(r["transaction_count"]),
           sample_row_ids: (r["sample_row_ids"] as unknown[] | null)?.map(String) ?? [],
-        })),
-      },
+      })),
+    };
+
+    return JSON.stringify(
+      { result_id: createResultId("spend", payload), ...payload },
       null,
       2
     );

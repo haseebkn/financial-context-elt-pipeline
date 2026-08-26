@@ -41,6 +41,12 @@ describe("extractRowIdsFromToolResult", () => {
   it("returns an empty array for tool output with no row_ids", () => {
     expect(extractRowIdsFromToolResult("Query returned 0 rows.")).toEqual([]);
   });
+
+  it("extracts computed-result provenance ids for aggregate claims", () => {
+    expect(
+      extractRowIdsFromToolResult('{"result_id":"computed_spend_a1b2c3d4e5f67890"}')
+    ).toEqual(["computed_spend_a1b2c3d4e5f67890"]);
+  });
 });
 
 describe("validateCitations", () => {

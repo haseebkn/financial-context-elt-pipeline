@@ -11,6 +11,7 @@ describe("summarize_spend tool (integration, real warehouse)", () => {
     })) as string;
 
     const parsed = JSON.parse(result);
+    expect(parsed.result_id).toMatch(/^computed_spend_[a-f0-9]{16}$/);
     expect(parsed.transaction_type).toBe("spend");
     expect(parsed.breakdown.length).toBeGreaterThan(0);
     // Every group total should be positive (spend convention: amount > 0).

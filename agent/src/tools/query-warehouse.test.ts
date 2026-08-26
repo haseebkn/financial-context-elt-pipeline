@@ -12,6 +12,9 @@ describe("query_warehouse tool (integration, real warehouse)", () => {
     });
     expect(result).toContain("calendar");
     expect(result).toContain("plaid");
+    const parsed = JSON.parse(result as string);
+    expect(parsed.result_id).toMatch(/^computed_query_[a-f0-9]{16}$/);
+    expect(parsed.rows.length).toBeGreaterThan(0);
   });
 
   it("rejects a disallowed table with a clear reason fed back to the model", async () => {

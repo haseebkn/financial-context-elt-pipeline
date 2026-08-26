@@ -151,6 +151,7 @@ describe("sourceFromRowId", () => {
     expect(sourceFromRowId("calendar_abc")).toBe("Calendar");
     expect(sourceFromRowId("plaid_abc")).toBe("Plaid");
     expect(sourceFromRowId("alpaca_abc")).toBe("Alpaca");
+    expect(sourceFromRowId("computed_spend_abc")).toBe("Computed");
   });
 
   it("returns Unknown for an unrecognized prefix", () => {

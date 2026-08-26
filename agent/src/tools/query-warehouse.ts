@@ -2,6 +2,7 @@ import { z } from "zod/v4";
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { guardSql } from "../lib/sql-guard.js";
 import { queryRows } from "../lib/duckdb.js";
+import { createResultId } from "../lib/result-id.js";
 
 const QueryWarehouseSchema = z
   .object({
@@ -49,10 +50,22 @@ export const queryWarehouseTool = betaZodTool({
       }
       const truncated = rows.length > MAX_RESULT_ROWS_IN_RESPONSE;
       const payload = truncated ? rows.slice(0, MAX_RESULT_ROWS_IN_RESPONSE) : rows;
-      const result = JSON.stringify(payload, null, 2);
-      return truncated
-        ? `${result}\n\n[Truncated: showing ${MAX_RESULT_ROWS_IN_RESPONSE} of ${rows.length} rows. Add aggregation or a tighter filter instead of relying on more rows.]`
-        : result;
+      return JSON.stringify(
+        {
+          result_id: createResultId("query", { sql: guard.sql, rows: payload }),
+          rows: payload,
+          ...(truncated
+            ? {
+                truncated: true,
+                returned_rows: MAX_RESULT_ROWS_IN_RESPONSE,
+                total_rows: rows.length,
+                guidance: "Add aggregation or a tighter filter instead of relying on more rows.",
+              }
+            : {}),
+        },
+        null,
+        2
+      );
     } catch (e) {
       return `Query failed to execute: ${(e as Error).message}. This usually means a column or table name is wrong — check the schema in the tool description and retry once.`;
     }

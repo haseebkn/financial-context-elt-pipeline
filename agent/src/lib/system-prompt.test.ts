@@ -15,4 +15,10 @@ describe("SYSTEM_PROMPT live-regression rules", () => {
     expect(SYSTEM_PROMPT).toContain('do not volunteer an "adjusted"');
     expect(SYSTEM_PROMPT).toContain("Calendar questions do not need a portfolio snapshot");
   });
+
+  it("uses computed provenance for aggregates and refuses subjective judgments without tools", () => {
+    expect(SYSTEM_PROMPT).toContain("Cite the computed result_id for counts, sums");
+    expect(SYSTEM_PROMPT).toContain("they do not prove an aggregate claim");
+    expect(SYSTEM_PROMPT).toContain("Do not call tools before declining these questions");
+  });
 });

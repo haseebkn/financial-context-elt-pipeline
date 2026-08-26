@@ -6,7 +6,7 @@
  */
 
 const CITATION_PATTERN = /\[([a-zA-Z0-9_-]+)\](?!\()/g;
-const ROW_ID_PATTERN = /\b((?:calendar|plaid|alpaca)_[a-zA-Z0-9_-]+)\b/g;
+const ROW_ID_PATTERN = /\b((?:(?:calendar|plaid|alpaca|computed)_[a-zA-Z0-9_-]+))\b/g;
 
 /** Extracts every [row_id]-style citation token from the answer text. */
 export function extractCitations(text: string): string[] {

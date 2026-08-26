@@ -4,6 +4,7 @@ const SOURCE_COLOR: Record<string, string> = {
   Calendar: "#a78bfa",
   Plaid: "#34d399",
   Alpaca: "#fbbf24",
+  Computed: "#60a5fa",
   Unknown: "#9ca3af",
 };
 
