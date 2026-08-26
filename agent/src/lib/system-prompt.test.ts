@@ -21,4 +21,32 @@ describe("SYSTEM_PROMPT live-regression rules", () => {
     expect(SYSTEM_PROMPT).toContain("they do not prove an aggregate claim");
     expect(SYSTEM_PROMPT).toContain("Do not call tools before declining these questions");
   });
+
+  it("answers unspecified totals over full coverage instead of asking for a period", () => {
+    expect(SYSTEM_PROMPT).toContain("do not stop to ask for one");
+    expect(SYSTEM_PROMPT).toContain("Use the full available range");
+    expect(SYSTEM_PROMPT).toContain("state the coverage window");
+  });
+
+  it("checks calendar and transaction evidence for activity questions", () => {
+    expect(SYSTEM_PROMPT).toContain("evidence in both calendar events and merchant transactions");
+    expect(SYSTEM_PROMPT).toContain("Check both sources before concluding");
+  });
+
+  it("cites the computed provenance returned by zero-row queries", () => {
+    expect(SYSTEM_PROMPT).toContain("A zero-row query also returns a computed result_id");
+    expect(SYSTEM_PROMPT).toContain('do not write a prose placeholder such as "[result of query]"');
+  });
+
+  it("does not promote recurring charges to membership or participation", () => {
+    expect(SYSTEM_PROMPT).toContain('never rename recurring activity-related charges as a "membership"');
+    expect(SYSTEM_PROMPT).toContain("only one possible explanation");
+  });
+
+  it("bounds repeated exploration and requires concrete transaction examples", () => {
+    expect(SYSTEM_PROMPT).toContain("Do not run more than two successful precision queries");
+    expect(SYSTEM_PROMPT).toContain("never finish a turn with tools called but no user-facing answer");
+    expect(SYSTEM_PROMPT).toContain("name the merchant and amount");
+    expect(SYSTEM_PROMPT).toContain("resolve that row before answering");
+  });
 });

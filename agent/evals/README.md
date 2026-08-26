@@ -14,6 +14,7 @@
 npm run eval          # full 34-case suite, judge n=3
 npm run eval:pr        # first 12 cases, judge n=1, exits 1 if thresholds aren't met
 npx tsx evals/run.ts --subset 5 --gate   # ad hoc
+npm run eval -- --cases retrieval-05,aggregation-02 --judge-n 3 --no-write
 ```
 
 Requires `ANTHROPIC_API_KEY` and a **populated local warehouse** — `financial_engine.db` built from your own `raw_data/` (see the repo root README's ingestion steps), plus the retrieval service running (`uvicorn vector_prep.retrieval_service:app ...`) for `search_context`-using cases.
@@ -32,7 +33,9 @@ This is a data problem inherent to evaluating a personalized agent over one pers
 
 Each run writes a sanitized public JSON report and a human-readable Markdown summary under `evals/reports/`. Answer text, retrieved row IDs, and raw error messages are excluded from the public JSON so a report can be committed without publishing personal financial data. The unredacted report is written to `evals/reports/private/`, which is gitignored and remains available for local debugging.
 
-Reports include the mean and maximum spread across the judge's three samples. A wide spread is evidence that the judge itself is unstable even when its mean looks acceptable. `evals/baseline.json` contains the sanitized aggregate metrics from the original 30-case run and is used for before/after comparisons.
+Reports include the mean and maximum spread across the judge's three samples. A wide spread is evidence that the judge itself is unstable even when its mean looks acceptable. `--cases` supports focused regression runs, and `--no-write` prevents those partial runs from replacing the full report shown in the Evals tab.
+
+`evals/baseline.json` contains the sanitized current 34-case Sonnet baseline and is used for future before/after comparisons. Deltas are shown only when the baseline used the same model and case count; the formatter deliberately refuses to compare, for example, a 30-case Opus run with a 34-case Sonnet run.
 
 ## Gate thresholds (`report.ts`)
 

@@ -110,6 +110,17 @@ describe("formatReportMarkdown", () => {
     expect(md).toMatch(/vs baseline/);
   });
 
+  it("does not compare different models or case counts as a baseline", () => {
+    const baseline = buildReport([makeResult({ recallScore: 0.5 })], "claude-opus-5");
+    const currentDifferentModel = buildReport([makeResult({ recallScore: 0.9 })], "claude-sonnet-5");
+    const currentDifferentCases = buildReport(
+      [makeResult({ recallScore: 0.9 }), makeResult({ id: "c2", recallScore: 0.9 })],
+      "claude-opus-5"
+    );
+    expect(formatReportMarkdown(currentDifferentModel, baseline)).not.toMatch(/vs baseline/);
+    expect(formatReportMarkdown(currentDifferentCases, baseline)).not.toMatch(/vs baseline/);
+  });
+
   it("lists failing cases with their judge explanation", () => {
     const report = buildReport([makeResult({ id: "bad1", judgeScore: 2, judgeExplanation: "missed the point" })], "claude-opus-5");
     const md = formatReportMarkdown(report);

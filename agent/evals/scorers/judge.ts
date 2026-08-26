@@ -4,6 +4,14 @@ import type { GoldenCase } from "../types.js";
 
 const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
+export const JUDGE_SYSTEM_PROMPT =
+  "You are grading an AI financial assistant's answer against a case-specific rubric. The rubric is the sole " +
+  "contract: grade whether the answer actually delivers every outcome it requires. Do not reward caution, a " +
+  "clarifying question, a refusal, or an offer to answer later when the rubric requires factual results or " +
+  "calculated totals; an answer that provides none of the required result should score 1. Only reward a refusal " +
+  "when the rubric itself requires or permits declining. Do not invent requirements absent from the rubric. Be " +
+  "strict about fabricated facts and citations: a cited row_id must support the claim attached to it.";
+
 const JUDGE_TOOL = {
   name: "submit_judgment",
   description: "Submit your evaluation of the assistant's answer.",
@@ -41,11 +49,7 @@ export async function judgeSingle(goldenCase: GoldenCase, answerText: string): P
   const response = await client.messages.create({
     model: env.AGENT_MODEL,
     max_tokens: 1024,
-    system:
-      "You are grading an AI financial assistant's answer against a rubric. Be strict: an answer that " +
-      "invents a fact, cites a row_id that doesn't support the claim, or ignores the rubric should score low. " +
-      "An answer that correctly declines out-of-scope advice per its rubric should score 5, not be penalized " +
-      "for 'not answering'.",
+    system: JUDGE_SYSTEM_PROMPT,
     tools: [JUDGE_TOOL],
     tool_choice: { type: "tool", name: "submit_judgment" },
     messages: [

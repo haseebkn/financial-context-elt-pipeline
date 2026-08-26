@@ -100,6 +100,12 @@ export function formatReportMarkdown(report: EvalReport, baseline?: EvalReport):
   lines.push(`Model: \`${report.model}\` | Cases: ${report.totalCases} | Cost: $${report.aggregate.totalCostUsd.toFixed(4)}`);
   lines.push("");
 
+  // A delta is meaningful only when both reports exercised the same model
+  // and the same number of cases. Comparing a 34-case Sonnet run with the
+  // old 30-case Opus baseline produced a precise-looking but invalid number.
+  const comparableBaseline =
+    baseline?.model === report.model && baseline.totalCases === report.totalCases ? baseline : undefined;
+
   const diff = (current: number, baselineValue: number | undefined, fmt: (n: number) => string) => {
     if (baselineValue === undefined) return "";
     const delta = current - baselineValue;
@@ -110,9 +116,9 @@ export function formatReportMarkdown(report: EvalReport, baseline?: EvalReport):
 
   lines.push("## Aggregate");
   lines.push("");
-  lines.push(`- Tool-choice accuracy: ${fmtPct(report.aggregate.toolChoiceAccuracy)}${diff(report.aggregate.toolChoiceAccuracy, baseline?.aggregate.toolChoiceAccuracy, fmtPct)}`);
-  lines.push(`- Mean recall: ${fmtPct(report.aggregate.meanRecall)}${diff(report.aggregate.meanRecall, baseline?.aggregate.meanRecall, fmtPct)}`);
-  lines.push(`- Mean judge score: ${report.aggregate.meanJudgeScore.toFixed(2)}/5${diff(report.aggregate.meanJudgeScore, baseline?.aggregate.meanJudgeScore, (n) => n.toFixed(2))}`);
+  lines.push(`- Tool-choice accuracy: ${fmtPct(report.aggregate.toolChoiceAccuracy)}${diff(report.aggregate.toolChoiceAccuracy, comparableBaseline?.aggregate.toolChoiceAccuracy, fmtPct)}`);
+  lines.push(`- Mean recall: ${fmtPct(report.aggregate.meanRecall)}${diff(report.aggregate.meanRecall, comparableBaseline?.aggregate.meanRecall, fmtPct)}`);
+  lines.push(`- Mean judge score: ${report.aggregate.meanJudgeScore.toFixed(2)}/5${diff(report.aggregate.meanJudgeScore, comparableBaseline?.aggregate.meanJudgeScore, (n) => n.toFixed(2))}`);
   lines.push(`- Judge spread, mean / max: ${report.aggregate.meanJudgeSpread.toFixed(2)} / ${report.aggregate.maxJudgeSpread.toFixed(2)}`);
   lines.push(`- p50 / p95 latency: ${report.aggregate.p50DurationMs}ms / ${report.aggregate.p95DurationMs}ms`);
   lines.push("");

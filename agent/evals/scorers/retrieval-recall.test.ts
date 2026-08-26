@@ -34,4 +34,22 @@ describe("scoreRetrievalRecall", () => {
     expect(scoreRetrievalRecall(c, [])).toBe(1);
     expect(scoreRetrievalRecall(c, ["plaid_a"])).toBe(1);
   });
+
+  it("accepts any occurrence of a recurring event by row-id prefix", () => {
+    const c = {
+      ...makeCase([]),
+      expected_row_id_prefixes: ["calendar_birthday_event_"],
+    };
+    expect(scoreRetrievalRecall(c, ["calendar_birthday_event_20510726"])).toBe(1);
+    expect(scoreRetrievalRecall(c, ["calendar_unrelated_20510726"])).toBe(0);
+  });
+
+  it("requires k-of-n candidates for a recurring merchant series", () => {
+    const c = {
+      ...makeCase([]),
+      expected_row_id_sets: [{ any_of: ["plaid_a", "plaid_b", "plaid_c", "plaid_d"], min_hits: 2 }],
+    };
+    expect(scoreRetrievalRecall(c, ["plaid_a", "plaid_c"])).toBe(1);
+    expect(scoreRetrievalRecall(c, ["plaid_a"])).toBe(0);
+  });
 });

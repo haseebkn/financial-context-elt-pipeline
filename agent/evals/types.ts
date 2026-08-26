@@ -9,6 +9,18 @@ export const GoldenCaseSchema = z
     expected_tools: z.array(z.string()),
     forbidden_tools: z.array(z.string()).optional(),
     expected_row_ids: z.array(z.string()),
+    expected_row_id_prefixes: z.array(z.string().min(1)).optional(),
+    expected_row_id_sets: z
+      .array(
+        z
+          .object({
+            any_of: z.array(z.string().min(1)).min(1),
+            min_hits: z.number().int().positive(),
+          })
+          .strict()
+          .refine((value) => value.min_hits <= value.any_of.length, "min_hits cannot exceed any_of length")
+      )
+      .optional(),
     rubric: z.string().min(1),
   })
   .strict();

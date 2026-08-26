@@ -46,7 +46,16 @@ export const queryWarehouseTool = betaZodTool({
     try {
       const rows = await queryRows(guard.sql!);
       if (rows.length === 0) {
-        return "Query returned 0 rows.";
+        const payload = { sql: guard.sql, rows: [] };
+        return JSON.stringify(
+          {
+            result_id: createResultId("query", payload),
+            rows: [],
+            note: "Query returned 0 rows.",
+          },
+          null,
+          2
+        );
       }
       const truncated = rows.length > MAX_RESULT_ROWS_IN_RESPONSE;
       const payload = truncated ? rows.slice(0, MAX_RESULT_ROWS_IN_RESPONSE) : rows;

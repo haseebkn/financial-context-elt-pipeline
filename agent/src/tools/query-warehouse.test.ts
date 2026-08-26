@@ -39,11 +39,14 @@ describe("query_warehouse tool (integration, real warehouse)", () => {
     expect(result).toMatch(/disallowed function/);
   });
 
-  it("returns a clean message for zero rows rather than an empty JSON array", async () => {
+  it("returns citable computed provenance for a zero-row result", async () => {
     const result = await queryWarehouseTool.run({
       sql: "SELECT * FROM main_analytics.fct_context_rows WHERE row_id = 'this-row-id-does-not-exist'",
     });
-    expect(result).toBe("Query returned 0 rows.");
+    const parsed = JSON.parse(result as string);
+    expect(parsed.result_id).toMatch(/^computed_query_[a-f0-9]{16}$/);
+    expect(parsed.rows).toEqual([]);
+    expect(parsed.note).toBe("Query returned 0 rows.");
   });
 
   it("surfaces a real DuckDB execution error usefully (bad column name)", async () => {
