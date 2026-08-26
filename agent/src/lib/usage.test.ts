@@ -37,4 +37,21 @@ describe("usage accounting", () => {
     );
     expect(cost).toBe(0);
   });
+
+  it("prices claude-sonnet-5, the current AGENT_MODEL default", async () => {
+    // Regression guard for exactly how AGENT_MODEL got switched from
+    // claude-opus-5 to claude-sonnet-5: config.ts's default changed, but
+    // PRICE_PER_MTOK is a separate table, and estimateCostUsd falls back to
+    // 0 for anything missing from it (see the test above) — so every trace
+    // written after that switch would have silently reported $0 cost until
+    // this was caught. Importing config.ts's actual default, rather than
+    // repeating the string "claude-sonnet-5" here, means this test breaks
+    // the moment the two drift apart again, on either side.
+    const { env } = await import("../config.js");
+    const cost = estimateCostUsd(
+      { inputTokens: 1_000_000, outputTokens: 0, cacheCreationInputTokens: 0, cacheReadInputTokens: 0 },
+      env.AGENT_MODEL
+    );
+    expect(cost).toBeGreaterThan(0);
+  });
 });

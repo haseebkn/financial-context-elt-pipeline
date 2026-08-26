@@ -8,7 +8,7 @@ import { z } from "zod";
 const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(8787),
   ANTHROPIC_API_KEY: z.string().min(1, "ANTHROPIC_API_KEY is required to run the agent loop"),
-  AGENT_MODEL: z.string().default("claude-opus-5"),
+  AGENT_MODEL: z.string().default("claude-sonnet-5"),
 
   // The single user's local zone, used to resolve "today", "last month",
   // and similar relative dates in each request.

@@ -2,11 +2,20 @@ import type { UsageSummary } from "../streaming-types.js";
 
 /**
  * Per-model list pricing, USD per million tokens. Keep in sync with
- * shared/models.md pricing if the model changes. Only claude-opus-5 is
- * wired up today since that's the only model this service calls.
+ * shared/models.md pricing if the model changes.
+ *
+ * A model missing from this table silently costs $0 (see the `!price`
+ * guard below) — so switching AGENT_MODEL without adding its entry here
+ * doesn't fail loudly, it just corrupts every cost figure the Metrics tab
+ * and eval reports show from that point on.
  */
 const PRICE_PER_MTOK: Record<string, { input: number; output: number; cacheWrite: number; cacheRead: number }> = {
   "claude-opus-5": { input: 5.0, output: 25.0, cacheWrite: 6.25, cacheRead: 0.5 },
+  // Intro pricing ($2/$10) runs through 2026-08-31, then reverts to list
+  // ($3/$15) — update this entry after that date. Cache write/read scale
+  // with input price at the same 1.25x/0.1x ratio Anthropic uses for Opus,
+  // since Sonnet-specific cache multipliers aren't separately published.
+  "claude-sonnet-5": { input: 2.0, output: 10.0, cacheWrite: 2.5, cacheRead: 0.2 },
 };
 
 export interface RawUsage {
