@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/haseebkn/financial-context-elt-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/haseebkn/financial-context-elt-pipeline/actions/workflows/ci.yml)
 
-This project has two layers, built in that order. The first is a conventional but genuinely solid ELT pipeline: extract Alpaca trades, Plaid transactions, and Google Calendar events into a landing zone, model them through dbt into a DuckDB warehouse, embed the narrative rows for semantic search, and orchestrate the whole thing on Airflow. The second layer is the reason the first one exists — a tool-using Claude agent that answers questions like *"did I go rock climbing recently?"* or *"how much did I spend on Food and Drink?"* by actually querying that warehouse, with the guardrails, citation tracking, and observability that separate a demo from something you'd trust with real financial data.
+This project is a shipped, tool-using financial context agent over real Plaid, Alpaca, and Google Calendar data. Claude Sonnet answers questions like *"did I go rock climbing recently?"* or *"how much did I spend by category?"* by searching semantic context, running guarded SQL, and invoking deterministic financial tools—not by guessing from the prompt. Every turn streams its tool trace, validates citations against observed provenance, and records token cost and latency.
 
-The split matters because it's the difference between wiring an LLM up to an API and building the infrastructure an agent needs to be trustworthy: a SQL guard the model can't talk its way around, answers that cite the row they came from, spans and cost accounting for every turn, and an eval harness that scores tool choice and recall instead of vibes. Fintech is a domain where "the agent sounded right" isn't good enough — this repo is an attempt to build the parts that make it actually right, or fail loudly when it isn't.
+The current 34-case Sonnet evaluation reports **100% tool-choice accuracy, 100% retrieval recall, and 4.86/5 mean judge score** at **$0.48** for the complete run. Those numbers came after live failures: the agent checked only calendar data for an activity question, asked for timeframes instead of answering aggregates, promoted recurring charges to a membership claim, and exhausted its tool loop without producing an answer. Each failure became a prompt, provenance, or eval-contract regression test. Fintech is a domain where "the agent sounded right" is not enough; this repo is built to make correctness observable and failures reproducible.
 
 ---
 
@@ -12,7 +12,7 @@ The split matters because it's the difference between wiring an LLM up to an API
 
 *   **Tool-Using Claude Agent (`agent/`):** Answers financial questions by calling real warehouse tools — `search_context`, `query_warehouse`, `get_portfolio_snapshot`, `summarize_spend` — never from prior knowledge. Freeform SQL is gated by a table allowlist and banned-function blocklist (`lib/sql-guard.ts`); every claim in an answer is checked against a cited row before it reaches the user.
 *   **Observability built in, not bolted on:** Every turn writes a span-level trace (LLM calls, tool executions, citation checks) into the same warehouse the agent queries — `/api/metrics` computes turns/day, error and repair rates, cache-hit rate, cost, and latency percentiles with real SQL against that trace data, not counters kept in memory.
-*   **An eval harness that scores agents, not vibes (`agent/evals/`):** Tool-choice accuracy, retrieval recall, and an LLM-judge score (sampled n=3, spread reported rather than trusted as a point estimate) against a golden set of questions — gated into CI.
+*   **An eval harness that scores agents, not vibes (`agent/evals/`):** Tool-choice accuracy, retrieval recall, and an LLM-judge score (sampled n=3, spread reported rather than trusted as a point estimate) against 34 golden questions. Scorer/report logic runs in CI; the privacy-sensitive live suite runs locally against the real warehouse.
 *   **React Chat Frontend (`web/`):** A streaming SSE chat UI with inline citation chips and a per-message trace waterfall, plus Metrics and Evals tabs backed directly by the warehouse.
 *   **Analytical Warehouse (`transform/`):** A dbt-modeled DuckDB warehouse (staging → marts) over trades, transactions, calendar events, and the agent's own traces.
 *   **Multi-Source API Ingestion (`extract/`):** Extractors for Alpaca Markets, Plaid, and Google Calendar, orchestrated by Astronomer Airflow with backup sync to AWS S3.
@@ -205,6 +205,27 @@ npm run dev --workspace web
 
 Open [http://localhost:5173](http://localhost:5173) for the chat UI — it proxies `/api/*` to the agent service and includes Chat, Metrics, and Evals tabs.
 
+### Verified evaluation evidence
+
+The committed Sonnet baseline is rendered directly by the Evals tab:
+
+| Metric | Sonnet 5, 34 cases |
+|---|---:|
+| Tool-choice accuracy | 100% |
+| Retrieval recall | 100% |
+| Mean LLM-judge score | 4.86 / 5 |
+| Judge spread (mean / max) | 0.12 / 1.00 |
+| p50 / p95 latency | 11.7s / 24.3s |
+| Complete-run cost | $0.48 |
+
+![Live Sonnet evaluation dashboard](docs/screenshots/evals-sonnet.png)
+
+The raw report is committed under [`agent/evals/reports/`](agent/evals/reports/). One raw judge false negative is retained and manually adjudicated rather than silently edited out: the judge called a real `$2,078.50` Payment row fabricated and demanded both sides of an explicitly either/or rubric. After clarifying the contract, a targeted n=3 rerun scored that case 5/5 with zero spread. This is why the harness reports judge spread and keeps human adjudication visible.
+
+The Metrics tab is populated from persisted span traces rather than frontend counters. It exposes iteration count, observed error/repair rates, prompt-cache hit rate, model cost, latency percentiles, tool distribution, and traffic by day:
+
+![Span-derived agent metrics](docs/screenshots/metrics-observability.png)
+
 See [`agent/README.md`](agent/README.md) for the agent's architecture, tool descriptions, and setup, and [`web/README.md`](web/README.md) for the frontend.
 
 `vector_prep/app.py` also exposes a plain `/api/stats` and `/api/search` for ad hoc semantic queries against ChromaDB, independent of the agent stack:
@@ -252,7 +273,19 @@ See [`infra/aws/README.md`](infra/aws/README.md) for the architecture diagram, c
 
 A few decisions worth being explicit about, in case they read as gaps rather than choices:
 
-*   **No `ANTHROPIC_API_KEY` was available while building the agent.** Every piece of orchestration around the model call — the SQL guard, citation validation, usage accounting, SSE framing, all four tools against the real warehouse — has real test coverage. The live model-calling path itself is covered by a smoke test that makes a genuine network call to `api.anthropic.com` and asserts on the structured *authentication* error it gets back, which proves the request is well-formed without proving what the model actually says. That's a real gap, not a hidden one — see `agent/README.md`'s "Known limitation" for how to close it.
+*   **The Anthropic path has been exercised end to end.** The live agent completed dozens of real tool-using turns against the populated warehouse, followed by multiple 34-case Opus and Sonnet runs. That exposed behavior unit tests could not: calendar-only activity conclusions, clarification loops on unspecified totals, aggregate claims cited with sample rows, membership claims inferred from recurring billing, and a tool loop that consumed every iteration without returning prose.
 *   **CI doesn't fake coverage it doesn't have.** Where fixture data doesn't match production data shape closely enough to make a green check mean something, the gap is documented rather than wired into a misleading gate.
 *   **The AWS deployment optimizes for cost over isolation** (public subnets instead of a NAT gateway, no HTTPS without a real domain) — a reasonable trade for a single-service portfolio deploy, explicitly not a template for a workload handling real funds. See `infra/aws/README.md` for the reasoning.
 *   **Two real bugs were caught by testing against real state instead of trusting the first green run:** an incremental dbt model using the wrong watermark column, and a `view`-materialized model whose `read_json_auto()` path resolved against the caller's working directory instead of build time — both invisible until something queried the model from a different directory than the one it was built from.
+
+### Building with coding agents
+
+This repository was developed with Claude Code and Codex as active engineering tools, not as one-shot code generators. The useful workflow was: ask the agent to implement a bounded slice, run the result against real state, preserve the exact failure, then turn that failure into a test and a narrowly named commit. The strongest work in the repository came from the feedback loop, not the first generated patch.
+
+Three examples changed how I use coding agents:
+
+*   A NumPy/ChromaDB incompatibility looked like an application bug until the environment was reproduced cleanly; dependency resolution had to be treated as part of the product, not setup trivia.
+*   npm workspace hoisting made a package appear healthy locally while its documented command failed from the package directory; running the exact README commands exposed the difference.
+*   A dbt model materialized as a view resolved `read_json_auto()` relative to the later query process, not the original build. The generated SQL compiled, but only real execution from another working directory revealed the bug.
+
+The practical view I would carry into a team is that AI reduces the cost of producing and exploring implementations, but increases the importance of executable contracts: real-state tests, traceable failures, small commits, and evals that distinguish model behavior from scorer behavior.

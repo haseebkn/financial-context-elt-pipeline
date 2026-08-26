@@ -34,6 +34,13 @@ interface EvalReport {
     judgeSpread: number;
     judgeExplanation: string;
     errored: boolean;
+    manualAdjudication?: {
+      verdict: "judge_false_negative";
+      score: number;
+      judgeN: number;
+      spread: number;
+      explanation: string;
+    };
   }[];
 }
 
@@ -134,7 +141,7 @@ export function EvalsView() {
 
       {failing.length > 0 && (
         <section className="panel-section">
-          <h3>Failing / low-scoring cases</h3>
+          <h3>Raw failing / low-scoring cases</h3>
           <ol className="eval-failures">
             {failing.map((r) => (
               <li key={r.id}>
@@ -146,6 +153,15 @@ export function EvalsView() {
                 </div>
                 <p className="eval-failure-question">{r.question}</p>
                 {r.judgeExplanation && <p className="eval-failure-explanation">{r.judgeExplanation}</p>}
+                {r.manualAdjudication && (
+                  <div className="eval-adjudication">
+                    <strong>Manual adjudication · judge false negative</strong>
+                    <span>
+                      Targeted recheck: {r.manualAdjudication.score.toFixed(2)}/5 · n={r.manualAdjudication.judgeN} · spread {r.manualAdjudication.spread.toFixed(2)}
+                    </span>
+                    <p>{r.manualAdjudication.explanation}</p>
+                  </div>
+                )}
               </li>
             ))}
           </ol>

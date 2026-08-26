@@ -247,7 +247,14 @@
       "judgeScore": 2,
       "judgeSpread": 0,
       "judgeExplanation": "The answer correctly surfaces the $5850 ACH figure, but then muddies the picture by citing a fabricated $2,078.50 'AUTOMATIC PAYMENT' as the 'next largest purchase' and ends with a clarifying question instead of definitively stating which interpretation was used and giving the required merchant-purchase tie result ($500 across KFC, Madison Bicycle Shop, United Airlines, Tectra Inc, etc.). This $2,078.50 claim is not supported by the rubric's expected data and appears fabricated, and the failure to resolve the merchant-purchase interpretation (leaving it as an offer) means the required outcome is not delivered.",
-      "citationsValid": false
+      "citationsValid": false,
+      "manualAdjudication": {
+        "verdict": "judge_false_negative",
+        "score": 5,
+        "judgeN": 3,
+        "spread": 0,
+        "explanation": "The cited computed query contains the real $5,850 Transfer entries and $2,078.50 Payment entry. The rubric allowed the Transfer interpretation without also requiring the separate merchant-purchase interpretation; a targeted rerun after clarifying that contract scored 5/5 across all three samples."
+      }
     },
     {
       "id": "aggregation-05",
