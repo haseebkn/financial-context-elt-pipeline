@@ -1,4 +1,4 @@
-import { writeFileSync, existsSync, readFileSync } from "node:fs";
+import { writeFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadGoldenSet, type EvalReport } from "./types.js";
 import { runEvalSuite } from "./runner.js";
@@ -14,6 +14,7 @@ import { env } from "../src/config.js";
 
 const EVALS_DIR = import.meta.dirname;
 const REPORTS_DIR = join(EVALS_DIR, "reports");
+const PRIVATE_REPORTS_DIR = join(REPORTS_DIR, "private");
 const BASELINE_PATH = join(EVALS_DIR, "baseline.json");
 
 function parseArgs(argv: string[]) {
@@ -35,8 +36,22 @@ async function main() {
   const results = await runEvalSuite(cases, { concurrency: 4, judgeN });
   const report = buildReport(results, env.AGENT_MODEL);
 
+  // reports/ is empty in a fresh clone and Git does not preserve empty
+  // directories. Create it at write time so the documented command works
+  // without a manual mkdir step.
+  mkdirSync(REPORTS_DIR, { recursive: true });
+  mkdirSync(PRIVATE_REPORTS_DIR, { recursive: true });
   const timestamp = report.runAt.replace(/[:.]/g, "-");
-  writeFileSync(join(REPORTS_DIR, `${timestamp}.json`), JSON.stringify(report, null, 2));
+  writeFileSync(join(PRIVATE_REPORTS_DIR, `${timestamp}.json`), JSON.stringify(report, null, 2));
+
+  // The full local report keeps answers and retrieved row ids for debugging.
+  // The committed/UI artifact omits those personal-data-bearing fields while
+  // retaining questions, scores, judge explanations, latency, and cost.
+  const publicReport = {
+    ...report,
+    results: report.results.map(({ answerText: _answerText, seenRowIds: _seenRowIds, errorMessage: _error, ...result }) => result),
+  };
+  writeFileSync(join(REPORTS_DIR, `${timestamp}.json`), JSON.stringify(publicReport, null, 2));
 
   const baseline: EvalReport | undefined = existsSync(BASELINE_PATH)
     ? (JSON.parse(readFileSync(BASELINE_PATH, "utf-8")) as EvalReport)

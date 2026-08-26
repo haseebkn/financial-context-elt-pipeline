@@ -18,6 +18,7 @@ function makeResult(overrides: Partial<CaseResult>): CaseResult {
     toolChoiceScore: 1,
     recallScore: 1,
     judgeScore: 5,
+    judgeSpread: 0,
     judgeExplanation: "good",
     citationsValid: true,
     ...overrides,
@@ -38,6 +39,7 @@ describe("buildReport", () => {
     expect(report.categoryBreakdown.retrieval.toolChoiceAccuracy).toBeCloseTo(0.5);
     expect(report.categoryBreakdown.aggregation.count).toBe(1);
     expect(report.aggregate.meanJudgeScore).toBeCloseTo((5 + 3 + 4) / 3);
+    expect(report.aggregate.meanJudgeSpread).toBe(0);
   });
 
   it("computes p50/p95 duration from real values", () => {
@@ -51,6 +53,17 @@ describe("buildReport", () => {
     const report = buildReport([], "claude-opus-5");
     expect(report.aggregate.meanJudgeScore).toBe(0);
     expect(report.aggregate.p50DurationMs).toBe(0);
+    expect(report.aggregate.maxJudgeSpread).toBe(0);
+  });
+
+  it("reports judge disagreement instead of hiding it behind the mean", () => {
+    const report = buildReport(
+      [makeResult({ id: "stable", judgeSpread: 0 }), makeResult({ id: "noisy", judgeSpread: 2 })],
+      "claude-opus-5"
+    );
+    expect(report.aggregate.meanJudgeSpread).toBe(1);
+    expect(report.aggregate.maxJudgeSpread).toBe(2);
+    expect(formatReportMarkdown(report)).toContain("Judge spread, mean / max: 1.00 / 2.00");
   });
 });
 

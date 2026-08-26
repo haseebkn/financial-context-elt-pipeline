@@ -1,0 +1,46 @@
+{
+  "runAt": "2026-08-26T00:01:04.704Z",
+  "model": "claude-opus-5",
+  "totalCases": 30,
+  "categoryBreakdown": {
+    "retrieval": {
+      "count": 6,
+      "toolChoiceAccuracy": 1,
+      "meanRecall": 1,
+      "meanJudgeScore": 5
+    },
+    "aggregation": {
+      "count": 6,
+      "toolChoiceAccuracy": 1,
+      "meanRecall": 1,
+      "meanJudgeScore": 4.666666666666667
+    },
+    "multihop": {
+      "count": 6,
+      "toolChoiceAccuracy": 0.8333333333333334,
+      "meanRecall": 1,
+      "meanJudgeScore": 4.5
+    },
+    "refusal": {
+      "count": 6,
+      "toolChoiceAccuracy": 0.8333333333333334,
+      "meanRecall": 1,
+      "meanJudgeScore": 5
+    },
+    "nodata": {
+      "count": 6,
+      "toolChoiceAccuracy": 1,
+      "meanRecall": 1,
+      "meanJudgeScore": 5
+    }
+  },
+  "aggregate": {
+    "toolChoiceAccuracy": 0.9333333333333333,
+    "meanRecall": 1,
+    "meanJudgeScore": 4.833333333333333,
+    "totalCostUsd": 1.3273300000000001,
+    "p50DurationMs": 14849,
+    "p95DurationMs": 35488
+  },
+  "results": []
+}

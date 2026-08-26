@@ -1,6 +1,6 @@
 # Eval Harness
 
-30 golden cases across 5 categories (retrieval, aggregation, multihop, refusal, nodata), scored on three independent axes so a failure attributes to a specific layer instead of one opaque number:
+34 golden cases across 5 categories (retrieval, aggregation, multihop, refusal, nodata), scored on three independent axes so a failure attributes to a specific layer instead of one opaque number. The original 30-case baseline is preserved; four additional cases came from failures observed during real Phase 2 usage.
 
 | Scorer | Isolates | File |
 |---|---|---|
@@ -11,7 +11,7 @@
 ## Running
 
 ```bash
-npm run eval          # full 30-case suite, judge n=3
+npm run eval          # full 34-case suite, judge n=3
 npm run eval:pr        # first 12 cases, judge n=1, exits 1 if thresholds aren't met
 npx tsx evals/run.ts --subset 5 --gate   # ad hoc
 ```
@@ -30,7 +30,9 @@ This is a data problem inherent to evaluating a personalized agent over one pers
 
 ## Report format
 
-Each run writes `evals/reports/<timestamp>.json` (full structured data) and `.md` (human-readable, with a diff against `evals/baseline.json` if one exists). To lock in a new baseline after a deliberate improvement: `cp evals/reports/<latest>.json evals/baseline.json`.
+Each run writes a sanitized public JSON report and a human-readable Markdown summary under `evals/reports/`. Answer text, retrieved row IDs, and raw error messages are excluded from the public JSON so a report can be committed without publishing personal financial data. The unredacted report is written to `evals/reports/private/`, which is gitignored and remains available for local debugging.
+
+Reports include the mean and maximum spread across the judge's three samples. A wide spread is evidence that the judge itself is unstable even when its mean looks acceptable. `evals/baseline.json` contains the sanitized aggregate metrics from the original 30-case run and is used for before/after comparisons.
 
 ## Gate thresholds (`report.ts`)
 

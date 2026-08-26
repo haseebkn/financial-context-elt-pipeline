@@ -6,6 +6,7 @@ interface CategoryStats {
   toolChoiceAccuracy: number;
   meanRecall: number;
   meanJudgeScore: number;
+  meanJudgeSpread: number;
 }
 
 interface EvalReport {
@@ -17,6 +18,8 @@ interface EvalReport {
     toolChoiceAccuracy: number;
     meanRecall: number;
     meanJudgeScore: number;
+    meanJudgeSpread: number;
+    maxJudgeSpread: number;
     totalCostUsd: number;
     p50DurationMs: number;
     p95DurationMs: number;
@@ -28,6 +31,7 @@ interface EvalReport {
     toolChoiceScore: number;
     recallScore: number;
     judgeScore: number;
+    judgeSpread: number;
     judgeExplanation: string;
     errored: boolean;
   }[];
@@ -87,6 +91,12 @@ export function EvalsView() {
           <div className="stat-value">{report.aggregate.meanJudgeScore.toFixed(2)}/5</div>
         </div>
         <div className="stat-card">
+          <div className="stat-label">Judge spread mean / max</div>
+          <div className="stat-value">
+            {report.aggregate.meanJudgeSpread.toFixed(2)} / {report.aggregate.maxJudgeSpread.toFixed(2)}
+          </div>
+        </div>
+        <div className="stat-card">
           <div className="stat-label">p50 / p95</div>
           <div className="stat-value">
             {formatDurationMs(report.aggregate.p50DurationMs)} / {formatDurationMs(report.aggregate.p95DurationMs)}
@@ -104,6 +114,7 @@ export function EvalsView() {
               <th>Tool accuracy</th>
               <th>Recall</th>
               <th>Judge</th>
+              <th>Spread</th>
             </tr>
           </thead>
           <tbody>
@@ -114,6 +125,7 @@ export function EvalsView() {
                 <td>{(stats.toolChoiceAccuracy * 100).toFixed(0)}%</td>
                 <td>{(stats.meanRecall * 100).toFixed(0)}%</td>
                 <td>{stats.meanJudgeScore.toFixed(2)}</td>
+                <td>{stats.meanJudgeSpread.toFixed(2)}</td>
               </tr>
             ))}
           </tbody>
@@ -129,7 +141,7 @@ export function EvalsView() {
                 <div className="eval-failure-head">
                   <span className="mono">{r.id}</span>
                   <span className="tool-duration">
-                    tool {r.toolChoiceScore} · recall {r.recallScore.toFixed(2)} · judge {r.judgeScore.toFixed(2)}
+                    tool {r.toolChoiceScore} · recall {r.recallScore.toFixed(2)} · judge {r.judgeScore.toFixed(2)} · spread {r.judgeSpread.toFixed(2)}
                   </span>
                 </div>
                 <p className="eval-failure-question">{r.question}</p>

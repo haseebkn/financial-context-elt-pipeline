@@ -41,4 +41,13 @@ describe("scoreToolChoice", () => {
     expect(scoreToolChoice(c, [])).toBe(1);
     expect(scoreToolChoice(c, ["query_warehouse"])).toBe(1);
   });
+
+  it("fails when an otherwise-correct turn calls a forbidden irrelevant tool", () => {
+    const c = makeCase({
+      expected_tools: ["query_warehouse"],
+      forbidden_tools: ["get_portfolio_snapshot"],
+    });
+    expect(scoreToolChoice(c, ["query_warehouse"])).toBe(1);
+    expect(scoreToolChoice(c, ["query_warehouse", "get_portfolio_snapshot"])).toBe(0);
+  });
 });

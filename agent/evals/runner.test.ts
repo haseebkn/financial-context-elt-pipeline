@@ -51,6 +51,7 @@ describe("runEvalCase (offline, scripted fakes — no network)", () => {
     expect(result.toolChoiceScore).toBe(1); // called search_context, matches expected_tools
     expect(result.recallScore).toBe(1); // plaid_abc was seen
     expect(result.judgeScore).toBe(4.5);
+    expect(result.judgeSpread).toBe(0.5);
     expect(result.answerText).toContain("Starbucks");
     expect(result.inputTokens).toBe(500);
     expect(result.costUsd).toBe(0.003);

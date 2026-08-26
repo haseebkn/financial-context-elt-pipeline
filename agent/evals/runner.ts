@@ -48,7 +48,7 @@ export async function runEvalCase(
           answerText = event.text;
           break;
         case "tool_result":
-          for (const match of event.summary.matchAll(/\b((?:calendar|plaid|alpaca)_[a-zA-Z0-9_-]+)\b/g)) {
+          for (const match of event.summary.matchAll(/\b((?:calendar|plaid|alpaca|computed)_[a-zA-Z0-9_-]+)\b/g)) {
             seenRowIds.add(match[1]!);
           }
           break;
@@ -70,6 +70,7 @@ export async function runEvalCase(
               toolChoiceScore: 0,
               recallScore: 0,
               judgeScore: 0,
+              judgeSpread: 0,
               judgeExplanation: "Case errored before producing an answer.",
               citationsValid: false,
             };
@@ -99,6 +100,7 @@ export async function runEvalCase(
       toolChoiceScore: 0,
       recallScore: 0,
       judgeScore: 0,
+      judgeSpread: 0,
       judgeExplanation: "Case threw before producing an answer.",
       citationsValid: false,
     };
@@ -123,6 +125,7 @@ export async function runEvalCase(
     toolChoiceScore,
     recallScore,
     judgeScore: judged.meanScore,
+    judgeSpread: judged.spread,
     judgeExplanation: judged.explanation,
     citationsValid: judged.citationsValid,
   };

@@ -7,6 +7,7 @@ export const GoldenCaseSchema = z
     category: z.enum(["retrieval", "aggregation", "multihop", "refusal", "nodata"]),
     question: z.string().min(1),
     expected_tools: z.array(z.string()),
+    forbidden_tools: z.array(z.string()).optional(),
     expected_row_ids: z.array(z.string()),
     rubric: z.string().min(1),
   })
@@ -51,6 +52,7 @@ export interface CaseResult {
   toolChoiceScore: number; // 0 or 1
   recallScore: number; // 0..1
   judgeScore: number; // 1..5 (mean across n samples)
+  judgeSpread: number; // max judge score - min judge score across samples
   judgeExplanation: string;
   citationsValid: boolean;
 }
@@ -61,12 +63,14 @@ export interface EvalReport {
   totalCases: number;
   categoryBreakdown: Record<
     GoldenCase["category"],
-    { count: number; toolChoiceAccuracy: number; meanRecall: number; meanJudgeScore: number }
+    { count: number; toolChoiceAccuracy: number; meanRecall: number; meanJudgeScore: number; meanJudgeSpread: number }
   >;
   aggregate: {
     toolChoiceAccuracy: number;
     meanRecall: number;
     meanJudgeScore: number;
+    meanJudgeSpread: number;
+    maxJudgeSpread: number;
     totalCostUsd: number;
     p50DurationMs: number;
     p95DurationMs: number;

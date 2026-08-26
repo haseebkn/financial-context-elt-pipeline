@@ -21,6 +21,7 @@ export function buildReport(results: CaseResult[], model: string): EvalReport {
       toolChoiceAccuracy: mean(inCategory.map((r) => r.toolChoiceScore)),
       meanRecall: mean(inCategory.map((r) => r.recallScore)),
       meanJudgeScore: mean(inCategory.map((r) => r.judgeScore)),
+      meanJudgeSpread: mean(inCategory.map((r) => r.judgeSpread)),
     };
   }
 
@@ -35,6 +36,8 @@ export function buildReport(results: CaseResult[], model: string): EvalReport {
       toolChoiceAccuracy: mean(results.map((r) => r.toolChoiceScore)),
       meanRecall: mean(results.map((r) => r.recallScore)),
       meanJudgeScore: mean(results.map((r) => r.judgeScore)),
+      meanJudgeSpread: mean(results.map((r) => r.judgeSpread)),
+      maxJudgeSpread: results.length === 0 ? 0 : Math.max(...results.map((r) => r.judgeSpread)),
       totalCostUsd: results.reduce((sum, r) => sum + r.costUsd, 0),
       p50DurationMs: percentile(durations, 50),
       p95DurationMs: percentile(durations, 95),
@@ -110,16 +113,17 @@ export function formatReportMarkdown(report: EvalReport, baseline?: EvalReport):
   lines.push(`- Tool-choice accuracy: ${fmtPct(report.aggregate.toolChoiceAccuracy)}${diff(report.aggregate.toolChoiceAccuracy, baseline?.aggregate.toolChoiceAccuracy, fmtPct)}`);
   lines.push(`- Mean recall: ${fmtPct(report.aggregate.meanRecall)}${diff(report.aggregate.meanRecall, baseline?.aggregate.meanRecall, fmtPct)}`);
   lines.push(`- Mean judge score: ${report.aggregate.meanJudgeScore.toFixed(2)}/5${diff(report.aggregate.meanJudgeScore, baseline?.aggregate.meanJudgeScore, (n) => n.toFixed(2))}`);
+  lines.push(`- Judge spread, mean / max: ${report.aggregate.meanJudgeSpread.toFixed(2)} / ${report.aggregate.maxJudgeSpread.toFixed(2)}`);
   lines.push(`- p50 / p95 latency: ${report.aggregate.p50DurationMs}ms / ${report.aggregate.p95DurationMs}ms`);
   lines.push("");
 
   lines.push("## By category");
   lines.push("");
-  lines.push("| Category | Cases | Tool accuracy | Recall | Judge score |");
-  lines.push("|---|---|---|---|---|");
+  lines.push("| Category | Cases | Tool accuracy | Recall | Judge score | Judge spread |");
+  lines.push("|---|---|---|---|---|---|");
   for (const [category, stats] of Object.entries(report.categoryBreakdown)) {
     lines.push(
-      `| ${category} | ${stats.count} | ${fmtPct(stats.toolChoiceAccuracy)} | ${fmtPct(stats.meanRecall)} | ${stats.meanJudgeScore.toFixed(2)} |`
+      `| ${category} | ${stats.count} | ${fmtPct(stats.toolChoiceAccuracy)} | ${fmtPct(stats.meanRecall)} | ${stats.meanJudgeScore.toFixed(2)} | ${stats.meanJudgeSpread.toFixed(2)} |`
     );
   }
   lines.push("");
@@ -136,7 +140,7 @@ export function formatReportMarkdown(report: EvalReport, baseline?: EvalReport):
         lines.push(`**Errored:** ${r.errorMessage}`);
       } else {
         lines.push(
-          `Tool-choice: ${r.toolChoiceScore} | Recall: ${r.recallScore.toFixed(2)} | Judge: ${r.judgeScore.toFixed(2)}/5 | Citations valid: ${r.citationsValid}`
+          `Tool-choice: ${r.toolChoiceScore} | Recall: ${r.recallScore.toFixed(2)} | Judge: ${r.judgeScore.toFixed(2)}/5 | Spread: ${r.judgeSpread.toFixed(2)} | Citations valid: ${r.citationsValid}`
         );
         lines.push("");
         lines.push(`Judge: ${r.judgeExplanation}`);

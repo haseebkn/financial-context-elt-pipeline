@@ -13,6 +13,9 @@ import type { GoldenCase } from "../types.js";
  *   reasonable behavior even when the answer turns out to be "not available".
  */
 export function scoreToolChoice(goldenCase: GoldenCase, actualToolCalls: string[]): number {
+  const forbidden = goldenCase.forbidden_tools ?? [];
+  if (actualToolCalls.some((name) => forbidden.includes(name))) return 0;
+
   if (goldenCase.expected_tools.length === 0) {
     if (goldenCase.category === "refusal") {
       return actualToolCalls.length === 0 ? 1 : 0;
