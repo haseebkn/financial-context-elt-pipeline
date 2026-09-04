@@ -4,5 +4,13 @@
   "workspaces": [
     "agent",
     "web"
-  ]
+  ],
+  "scripts": {
+    "test": "npm run test --workspace agent && npm run test --workspace web",
+    "typecheck": "npm run typecheck --workspace agent && npm run typecheck --workspace web",
+    "build": "npm run build --workspace agent && npm run build --workspace web",
+    "dev:agent": "npm run dev --workspace agent",
+    "dev:web": "npm run dev --workspace web",
+    "eval": "npm run eval --workspace agent"
+  }
 }

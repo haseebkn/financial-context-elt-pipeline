@@ -15,6 +15,7 @@ that needs structured, addressable results) and shouldn't share one FastAPI
 app.
 """
 
+import secrets
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -89,7 +90,15 @@ def require_auth(x_internal_token: str | None = Header(None)) -> None:
             status_code=503,
             detail="RETRIEVAL_SERVICE_TOKEN is not configured — refusing to serve authenticated routes.",
         )
-    if x_internal_token != settings.retrieval_service_token:
+    # compare_digest rather than != : a plain string comparison short-circuits
+    # on the first differing byte, so how long the check takes is a function of
+    # how much of the token the caller guessed correctly. The margin is tiny and
+    # mostly buried in network jitter, but constant-time comparison is the
+    # one-line correct way to compare a secret and this service is the trust
+    # boundary in front of the warehouse.
+    provided = (x_internal_token or "").encode("utf-8")
+    expected = settings.retrieval_service_token.encode("utf-8")
+    if not secrets.compare_digest(provided, expected):
         raise HTTPException(
             status_code=401, detail="Invalid or missing X-Internal-Token header."
         )

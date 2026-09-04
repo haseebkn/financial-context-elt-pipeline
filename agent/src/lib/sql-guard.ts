@@ -124,7 +124,14 @@ export function guardSql(sqlInput: string): GuardResult {
   const hasLimit = Array.isArray((stmt as any).limit?.value) && (stmt as any).limit.value.length > 0;
   let finalSql = sql;
   if (!hasLimit) {
-    finalSql = `${sql} LIMIT ${DEFAULT_ROW_LIMIT}`;
+    // Append on a NEW LINE, not with a space. A query ending in a `--`
+    // comment ("SELECT ... -- note") would otherwise swallow the clause
+    // entirely — "... -- note LIMIT 500" parses as a comment, DuckDB runs
+    // the query uncapped, and the row limit is silently not enforced.
+    // Verified against the real warehouse: a self-join that should have
+    // returned 500 rows returned 8836. A line comment ends at the newline,
+    // so this placement keeps the LIMIT outside it in every case.
+    finalSql = `${sql}\nLIMIT ${DEFAULT_ROW_LIMIT}`;
   } else {
     const limitValue = (stmt as any).limit.value[(stmt as any).limit.value.length - 1]?.value;
     if (typeof limitValue === "number" && limitValue > MAX_ROW_LIMIT) {

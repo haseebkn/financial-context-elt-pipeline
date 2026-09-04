@@ -11,11 +11,16 @@ import type { UsageSummary } from "../streaming-types.js";
  */
 const PRICE_PER_MTOK: Record<string, { input: number; output: number; cacheWrite: number; cacheRead: number }> = {
   "claude-opus-5": { input: 5.0, output: 25.0, cacheWrite: 6.25, cacheRead: 0.5 },
-  // Intro pricing ($2/$10) runs through 2026-08-31, then reverts to list
-  // ($3/$15) — update this entry after that date. Cache write/read scale
-  // with input price at the same 1.25x/0.1x ratio Anthropic uses for Opus,
-  // since Sonnet-specific cache multipliers aren't separately published.
-  "claude-sonnet-5": { input: 2.0, output: 10.0, cacheWrite: 2.5, cacheRead: 0.2 },
+  // List pricing. Sonnet 5 launched at an intro rate of $2/$10 which
+  // expired 2026-08-31; this is the standard rate that applies from
+  // 2026-09-01 onward. Cache write/read scale with input price at the same
+  // 1.25x/0.1x ratio Anthropic uses for Opus, since Sonnet-specific cache
+  // multipliers aren't separately published.
+  //
+  // Note for anyone comparing against older eval reports: runs published
+  // before 2026-09-01 were priced at the intro rate and are correct as
+  // recorded — they are not directly comparable to runs priced here.
+  "claude-sonnet-5": { input: 3.0, output: 15.0, cacheWrite: 3.75, cacheRead: 0.3 },
 };
 
 export interface RawUsage {

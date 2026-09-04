@@ -118,4 +118,29 @@ describe("guardSql", () => {
     );
     expect(result.ok).toBe(false);
   });
+
+  /**
+   * Regression: LIMIT used to be appended with a space, so a query ending in
+   * a line comment swallowed it — "SELECT ... -- note LIMIT 500" parses as a
+   * comment and DuckDB runs the query uncapped. Verified against the real
+   * warehouse before the fix: a self-join that should have been capped at
+   * 500 returned 8836 rows.
+   */
+  it("keeps the injected LIMIT outside a trailing line comment", () => {
+    const result = guardSql("SELECT * FROM main_analytics.fct_context_rows -- note");
+    expect(result.ok).toBe(true);
+    expect(result.sql!.split("\n").pop()).toBe("LIMIT 500");
+  });
+
+  it("keeps the injected LIMIT outside a comment on its own trailing line", () => {
+    const result = guardSql("SELECT * FROM main_analytics.fct_context_rows\n-- trailing");
+    expect(result.ok).toBe(true);
+    expect(result.sql!.split("\n").pop()).toBe("LIMIT 500");
+  });
+
+  it("still appends a LIMIT to an ordinary unlimited query", () => {
+    const result = guardSql("SELECT * FROM main_analytics.fct_context_rows");
+    expect(result.ok).toBe(true);
+    expect(result.sql!.split("\n").pop()).toBe("LIMIT 500");
+  });
 });
